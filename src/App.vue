@@ -33,8 +33,7 @@ async function sendMessage() {
   try {
     controller.value = new AbortController();
 
-    const response = await fetch(
-      `https://api.allorigins.win/get?url=${encodeURIComponent("https://ai.hackclub.com/chat/completions")}`,
+    const response = await fetch("/api/proxy",
       {
         method: 'POST',
         headers: {
