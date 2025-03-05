@@ -34,7 +34,7 @@ async function sendMessage() {
     controller.value = new AbortController();
 
     const response = await fetch(
-      "https://api.allorigins.win/raw?url=https://ai.hackclub.com/chat/completions",
+      "https://ai.hackclub.com/chat/completions",
       {
         method: 'POST',
         headers: {
