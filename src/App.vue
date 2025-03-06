@@ -33,7 +33,7 @@ async function sendMessage() {
   try {
     controller.value = new AbortController();
 
-    const response = await fetch("/api/proxy",
+    const response = await fetch("https://ai.hackclub.com/chat/completions",
       {
         method: 'POST',
         headers: {
