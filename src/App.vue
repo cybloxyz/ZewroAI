@@ -162,8 +162,8 @@ async function sendMessage() {
     <header>
       <h1>Hack Club AI ChatBot</h1>
       <div class="disclaimer">
-        This is not an official HackClub website. API from
-        <a href="https://ai.hackclub.com">ai.hackclub.com</a>
+        This is not an official HackClub website. The API is from
+        <a href="https://ai.hackclub.com">ai.hackclub.com.</a>
       </div>
       <div class="disclaimer">
         AI-generated content should always be fact-checked.
@@ -652,6 +652,10 @@ code {
   .chat-wrapper {
     padding: var(--spacing-4);
     margin-bottom: 72px;
+  }
+
+  .header h1 {
+    visibility: hidden;
   }
 
   .message-form {
