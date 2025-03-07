@@ -11,7 +11,14 @@
     "format": "prettier --write src/"
   },
   "dependencies": {
+    "@types/katex": "^0.16.7",
     "hackclub-ai-chatbot": "file:",
+    "highlight.js": "^11.11.1",
+    "katex": "^0.16.21",
+    "markdown-it": "^14.1.0",
+    "markdown-it-footnote": "^4.0.0",
+    "markdown-it-katex": "^2.0.3",
+    "markdown-it-task-lists": "^2.1.1",
     "vue": "^3.5.13"
   },
   "devDependencies": {

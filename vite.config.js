@@ -6,6 +6,9 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 
 // https://vite.dev/config/
 export default defineConfig({
+  optimizeDeps: {
+    include: ['markdown-it-task-lists']
+    },
   plugins: [
     vue(),
     vueDevTools(),
