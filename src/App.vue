@@ -5,8 +5,12 @@ import 'highlight.js/styles/github-dark.css';
 import MarkdownIt from 'markdown-it';
 import markdownItFootnote from 'markdown-it-footnote';
 import markdownItTaskLists from 'markdown-it-task-lists';
-import { Analytics } from "@vercel/analytics/react"
-import { SpeedInsights } from "@vercel/speed-insights/next"
+import { inject } from "@vercel/analytics"
+import { injectSpeedInsights } from '@vercel/speed-insights';
+
+// Inject analytics and performance insights
+inject();
+injectSpeedInsights();
 
 const md = new MarkdownIt({
   html: true,
@@ -147,8 +151,6 @@ async function sendMessage() {
 </script>
 
 <template>
-  <Analytics />
-  <SpeedInsights />
   <a href="https://hackclub.com/"
     style="position: absolute; top: 0; left: 128px; border: 0; z-index: 999; background-color: transparent;"
     onmouseover="this.style.backgroundColor='transparent'" onmouseout="this.style.backgroundColor='transparent'">
