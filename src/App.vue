@@ -152,8 +152,9 @@ async function sendMessage() {
 
 <template>
   <a href="https://hackclub.com/"
-    style="position: absolute; top: 0; left: 128px; border: 0; z-index: 999; background-color: transparent;"
-    onmouseover="this.style.backgroundColor='transparent'" onmouseout="this.style.backgroundColor='transparent'">
+    style="position: absolute; top: 0; left: 64px; border: 0; z-index: 999; background-color: transparent;"
+    onmouseover="this.style.backgroundColor='transparent'" onmouseout="this.style.backgroundColor='transparent'"
+    class="flag">
     <img src="https://assets.hackclub.com/flag-orpheus-top.svg" alt="Hack Club"
       style="width: 228px; max-width: 100%;" />
   </a>
@@ -629,6 +630,12 @@ code {
   cursor: help;
 }
 
+@media (max-width: 1024px) {
+  .flag {
+    visibility: hidden;
+  }
+}
+
 @media (max-width: 768px) {
   .chat-wrapper {
     padding: var(--spacing-16);
@@ -636,6 +643,11 @@ code {
 
   .message-form {
     padding: var(--spacing-16);
+  }
+
+  .message-form textarea {
+    height: 55px;
+    padding: 14px;
   }
 
   .bubble {
