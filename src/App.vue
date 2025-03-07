@@ -233,7 +233,7 @@ body,
 .app-container {
   display: flex;
   flex-direction: column;
-  padding: var(--spacing-16) 0px;
+  padding: var(--spacing-16) 0;
   height: 100dvh;
   max-width: 100vw;
   box-sizing: border-box;
@@ -640,7 +640,7 @@ code {
 
 @media (max-width: 1024px) {
   .flag {
-    visibility: hidden;
+    display: none;
   }
 }
 
@@ -655,7 +655,11 @@ code {
   }
 
   header h1 {
-    visibility: hidden;
+    display: none;
+  }
+
+  header {
+    padding-top: 0px;
   }
 
   .message-form {
