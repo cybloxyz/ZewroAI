@@ -1,19 +1,29 @@
-# hackclub-ai-chatbot
+# Unofficial HackClub AI ChatBot
 
-This template should help get you started developing with Vue 3 in Vite.
+An AI ChatBot that uses DeepSeek V3 through [HackClub's free API](https://ai.hackclub.com).
 
-## Recommended IDE Setup
+## Features
 
-[VSCode](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+- Memory within a conversation
+- Full Markdown Support (excluding math LaTex syntax)
 
-## Customize configuration
+## Todo
 
-See [Vite Configuration Reference](https://vite.dev/config/).
+- [ ] Memory and chat persistence
+- [ ] Multiple chats at any one time
+- [ ] Customizable system prompt
+- [ ] Working memory between conversations
+- [ ] Better code support (copy button, numbered lines, etc.)
 
-## Project Setup
+## VSCode Setup
+
+[VSCode](https://code.visualstudio.com/).
+
+### Clone Project and Move into Its Folder
 
 ```sh
-npm install
+git clone https://github.com/Mostlime12195/Hackclub-AI-Chatbot.git
+cd hackclub-ai-chatbot
 ```
 
 ### Compile and Hot-Reload for Development
