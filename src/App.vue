@@ -183,8 +183,9 @@ async function sendMessage() {
     </div>
 
     <form class="message-form" @submit.prevent="sendMessage">
-      <textarea v-model="inputMessage" placeholder="Type your message..." :disabled="isLoading"
-        @keydown.enter.exact.prevent="sendMessage" @keydown.ctrl.enter.exact.prevent="inputMessage += '\n'"></textarea>
+      <textarea ref="textarea" id="text-input" v-model="inputMessage" placeholder="Type your message..."
+        :disabled="isLoading" @keydown.enter.exact.prevent="sendMessage"
+        @keydown.ctrl.enter.exact.prevent="inputMessage += '\n'"></textarea>
       <button type="button" @click="isLoading ? controller.abort() : sendMessage()"
         :disabled="!inputMessage.trim() && !isLoading">
         <svg v-if="!isLoading" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -232,7 +233,7 @@ body,
 .app-container {
   display: flex;
   flex-direction: column;
-  padding: var(--spacing-16);
+  padding: var(--spacing-16) 0px;
   height: 100dvh;
   max-width: 100vw;
   box-sizing: border-box;
@@ -264,15 +265,15 @@ header h1 {
   overflow-y: auto;
   background: var(--hc-card);
   padding: var(--spacing-16);
-  border-radius: var(--border-radius);
+  border-radius: 28px;
   max-width: 800px;
   margin: 0 auto;
   width: 100%;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 4px 16px rgb(0, 0, 0, 0.8);
   scroll-behavior: smooth;
   position: relative;
   z-index: 1;
-  margin-bottom: 128px;
+  margin-bottom: 104px;
 }
 
 .chat-wrapper::-webkit-scrollbar {
@@ -313,7 +314,7 @@ header h1 {
 .bubble {
   max-width: 90%;
   padding: var(--spacing-16) 20px;
-  border-radius: var(--border-radius);
+  border-radius: 34px;
   line-height: 1.5;
   font-size: 1rem;
   position: relative;
@@ -571,7 +572,7 @@ code {
   gap: var(--spacing-12);
   border: 2px solid #2d2d2d;
   justify-content: center;
-  border-radius: var(--border-radius);
+  border-radius: calc(var(--border-radius) + var(--spacing-16));
   max-width: 800px;
   margin: 0 auto;
   z-index: 10;
@@ -580,15 +581,27 @@ code {
 .message-form textarea {
   resize: none;
   min-height: 44px;
-  max-height: 200px;
+  height: 54px;
+  max-height: 100px;
   line-height: 1.5;
   flex: 1;
-  padding: var(--spacing-16);
+  padding: 14px;
   border-radius: var(--border-radius);
   border: 1px solid #555768;
   background: #40414f;
   color: #ececf1;
   font-size: 1rem;
+  transition: all 0.2s ease;
+}
+
+.message-form textarea::-webkit-scrollbar {
+  display: none;
+}
+
+.message-form textarea:focus {
+  border-color: #8492a6;
+  height: 88px;
+  outline: none;
 }
 
 .message-form button {
@@ -599,7 +612,7 @@ code {
   border: none;
   display: grid;
   place-items: center;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease-out;
   min-width: 44px;
   width: 54px;
   height: 54px;
@@ -611,7 +624,8 @@ code {
 }
 
 .message-form button:not(:disabled):hover {
-  background: #c42d3a;
+  background: #dd3744;
+  box-shadow: 0 0 12px rgba(240, 100, 100, 0.8);
 }
 
 .message-form button svg {
@@ -631,24 +645,35 @@ code {
 }
 
 @media (max-width: 768px) {
+  body {
+    font-size: small;
+  }
+
   .chat-wrapper {
     padding: var(--spacing-4);
-    margin-bottom: 100px;
+    margin-bottom: 72px;
   }
 
   .message-form {
-    padding: var(--spacing-16);
+    padding: var(--spacing-4);
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
+  }
+
+  .message-form button {
+    width: 44px;
+    height: 44px;
   }
 
   .message-form textarea {
-    height: 55px;
-    padding: 14px;
+    height: 44px;
+    padding: 8px;
   }
 
   .bubble {
     max-width: 88%;
     padding: var(--spacing-12) var(--spacing-16);
-    font-size: small;
   }
 }
 </style>
