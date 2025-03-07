@@ -221,7 +221,7 @@ body,
 #app {
   margin: 0;
   padding: 0;
-  height: 100vh;
+  height: 100dvh;
   width: 100vw;
   background: var(--hc-dark);
   color: #e0e0e0;
@@ -233,7 +233,7 @@ body,
   display: flex;
   flex-direction: column;
   padding: var(--spacing-16);
-  height: 100vh;
+  height: 100dvh;
   max-width: 100vw;
   box-sizing: border-box;
 }
@@ -264,7 +264,6 @@ header h1 {
   overflow-y: auto;
   background: var(--hc-card);
   padding: var(--spacing-16);
-  padding-bottom: 8rem;
   border-radius: var(--border-radius);
   max-width: 800px;
   margin: 0 auto;
@@ -273,6 +272,7 @@ header h1 {
   scroll-behavior: smooth;
   position: relative;
   z-index: 1;
+  margin-bottom: 128px;
 }
 
 .chat-wrapper::-webkit-scrollbar {
@@ -287,12 +287,6 @@ header h1 {
 .chat-wrapper::-webkit-scrollbar-thumb {
   background: #555768;
   border-radius: 4px;
-}
-
-.chat-wrapper::-webkit-scrollbar-button:end:increment {
-  height: 25%;
-  display: block;
-  background: transparent;
 }
 
 .chat-container {
@@ -638,7 +632,8 @@ code {
 
 @media (max-width: 768px) {
   .chat-wrapper {
-    padding: var(--spacing-16);
+    padding: var(--spacing-4);
+    margin-bottom: 100px;
   }
 
   .message-form {
@@ -652,6 +647,8 @@ code {
 
   .bubble {
     max-width: 88%;
+    padding: var(--spacing-12) var(--spacing-16);
+    font-size: small;
   }
 }
 </style>
