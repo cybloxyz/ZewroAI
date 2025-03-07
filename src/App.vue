@@ -72,6 +72,11 @@ async function sendMessage() {
   inputMessage.value = '';
   isLoading.value = true;
 
+  chatWrapper.value.scrollTo({
+    top: chatWrapper.value.scrollHeight,
+    behavior: 'auto'
+  });
+
   try {
     controller.value = new AbortController();
     const response = await fetch("https://ai.hackclub.com/chat/completions", {
