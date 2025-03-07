@@ -654,7 +654,7 @@ code {
     margin-bottom: 72px;
   }
 
-  .header h1 {
+  header h1 {
     visibility: hidden;
   }
 
