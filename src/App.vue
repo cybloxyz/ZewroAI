@@ -122,25 +122,26 @@ async function sendMessage(message) {
 
 <template>
   <a href="https://hackclub.com/"
-    style="position: absolute; top: 0; left: 188px; border: 0; z-index: 999; background-color: transparent;"
+    style="position: absolute; top: 0px; left: 60px; border: 0; z-index: 999; background-color: transparent;"
     onmouseover="this.style.backgroundColor='transparent'" onmouseout="this.style.backgroundColor='transparent'"
     class="flag">
     <img src="https://assets.hackclub.com/flag-orpheus-top.svg" alt="Hack Club"
-      style="width: 124px; max-width: 100%;" />
+      style="width: 140px; max-width: 100%;" />
   </a>
   <div class="app-container">
     <header>
-      <div class="disclaimer">
+      <div class="disclaimer" style="margin-bottom: 8px;">
         This is not an official HackClub website. API provided by <a href="https://ai.hackclub.com">ai.hackclub.com</a>
       </div>
-      <div class="disclaimer">
-        AI-generated content should always be fact-checked.
-      </div>
+
     </header>
 
     <ChatPanel ref="chatPanel" :messages="messages" :isLoading="isLoading" :dummy="dummy" />
 
     <MessageForm :isLoading="isLoading" @send-message="sendMessage" @abort-controller="controller.abort()" />
+    <p class="disclaimer" id="disclaimer">
+      AI-generated content should always be fact-checked.
+    </p>
   </div>
 </template>
 
@@ -177,7 +178,7 @@ body,
 .app-container {
   display: flex;
   flex-direction: column;
-  padding: var(--spacing-16) 0;
+  padding: var(--spacing-12) 0 var(--spacing-8);
   height: 100dvh;
   max-width: 100vw;
   box-sizing: border-box;
@@ -187,17 +188,20 @@ header {
   background: var(--hc-dark);
   border-bottom: 2px solid var(--hc-red);
   padding: 0px var(--spacing-16);
-  margin-bottom: var(--spacing-16);
+  margin-bottom: var(--spacing-8);
   text-align: center;
 }
 
 .disclaimer {
   font-size: 0.75rem;
   color: #8e8e8e;
-  margin: var(--spacing-4) 0;
+  margin: 0;
+  text-align: center;
 }
 
-
+#disclaimer {
+  margin-top: -8px;
+}
 
 @media (max-width: 1024px) {
   .flag {
@@ -206,6 +210,14 @@ header {
 }
 
 @media (max-width: 768px) {
+
+  #disclaimer {
+    margin-top: -16px;
+  }
+
+  .app-container {
+    padding: var(--spacing-4) 0 var(--spacing-4);
+  }
 
   header {
     padding-top: 0px;

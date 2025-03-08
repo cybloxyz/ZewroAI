@@ -38,10 +38,8 @@ const submitMessage = () => {
 
 <style scoped>
 .message-form {
-  position: fixed;
+  position: relative;
   bottom: var(--spacing-16);
-  left: var(--spacing-16);
-  right: var(--spacing-16);
   background: var(--hc-card);
   padding: var(--spacing-16);
   display: flex;
@@ -50,7 +48,8 @@ const submitMessage = () => {
   justify-content: center;
   border-radius: calc(var(--border-radius) + var(--spacing-16));
   max-width: 800px;
-  margin: 0 auto;
+  width: 100%;
+  margin: 16px auto 0;
   z-index: 10;
 }
 
@@ -111,6 +110,7 @@ const submitMessage = () => {
 @media (max-width: 768px) {
   .message-form {
     padding: var(--spacing-4);
+    width: 90%;
     background-color: transparent;
     border: none;
     box-shadow: none;

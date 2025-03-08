@@ -100,7 +100,7 @@ defineExpose({ onScroll, scrollToEnd, isAtBottom, userScrolling });
   scroll-behavior: smooth;
   position: relative;
   z-index: 1;
-  margin-bottom: 104px;
+  margin-bottom: var(--spacing-8);
 }
 
 .chat-wrapper::-webkit-scrollbar {
@@ -396,13 +396,13 @@ code {
 @media (max-width: 768px) {
   .chat-wrapper {
     padding: var(--spacing-4);
-    margin-bottom: 72px;
-    font-size: smaller;
+    margin: var(--spacing-8) var(--spacing-4) var(--spacing-8) var(--spacing-4);
   }
 
   .bubble {
     max-width: 88%;
-    padding: var(--spacing-12) var(--spacing-16);
+    padding: var(--spacing-12) var(--spacing-8);
+    font-size: smaller;
   }
 }
 </style>
