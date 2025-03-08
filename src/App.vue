@@ -213,6 +213,7 @@ header {
 
   #disclaimer {
     margin-top: -16px;
+    font-size: smaller;
   }
 
   .app-container {

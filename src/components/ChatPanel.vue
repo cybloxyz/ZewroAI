@@ -140,8 +140,8 @@ defineExpose({ onScroll, scrollToEnd, isAtBottom, userScrolling });
 
 .bubble {
   max-width: 90%;
-  padding: var(--spacing-16) 20px;
-  border-radius: 34px;
+  padding: 20px;
+  border-radius: 24px;
   line-height: 1.5;
   font-size: 1rem;
   position: relative;
@@ -394,9 +394,15 @@ code {
 }
 
 @media (max-width: 768px) {
+  .chat-container {
+    gap: var(--spacing-16);
+    padding: 0 var(--spacing-8);
+  }
+
   .chat-wrapper {
     padding: var(--spacing-4);
     margin: var(--spacing-8) var(--spacing-4) var(--spacing-8) var(--spacing-4);
+    border-radius: var(--border-radius);
   }
 
   .bubble {
