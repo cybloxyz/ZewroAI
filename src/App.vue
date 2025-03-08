@@ -217,7 +217,7 @@ header {
   }
 
   .app-container {
-    padding: var(--spacing-4) 0 var(--spacing-4);
+    padding: var(--spacing-12) 16px var(--spacing-8);
   }
 
   header {

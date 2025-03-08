@@ -10,13 +10,24 @@ const submitMessage = () => {
   inputMessage.value = '';
 };
 
+const handleEnterKey = (event) => {
+  // You can adjust the condition to detect mobile in your preferred way.
+  if (window.innerWidth < 768) {
+    // On mobile, add a newline instead of submitting.
+    // Optionally, remove .prevent on this handler if you want the default enter action.
+    inputMessage.value += "\n";
+  } else {
+    submitMessage();
+  }
+};
+
 </script>
 
 <template>
   <form class="message-form" @submit.prevent="submitMessage">
 
-    <textarea ref="textarea" id="text-input" v-model="inputMessage" placeholder="Type your message..."
-      :disabled="props.isLoading" @keydown.enter.exact.prevent="submitMessage"
+    <textarea ref="textarea" id="text-input" v-model.trim="inputMessage" placeholder="Type your message..."
+      :disabled="props.isLoading" @keydown.enter.exact.prevent="handleEnterKey"
       @keydown.ctrl.enter.exact.prevent="inputMessage += '\n'"></textarea>
 
     <button type="submit" @click="props.isLoading ? $emit('abort-controller') : submitMessage"

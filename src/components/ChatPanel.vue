@@ -372,7 +372,6 @@ code {
   vertical-align: baseline;
   line-height: 1.2;
   display: inline-block;
-  /* Removed vertical translation so the caret lines up with text */
 }
 
 @keyframes blink {
@@ -395,19 +394,19 @@ code {
 
 @media (max-width: 768px) {
   .chat-container {
-    gap: var(--spacing-16);
-    padding: 0 var(--spacing-8);
+    gap: var(--spacing-8);
+    padding: 0 var(--spacing-4);
   }
 
   .chat-wrapper {
     padding: var(--spacing-4);
-    margin: var(--spacing-8) var(--spacing-4) var(--spacing-8) var(--spacing-4);
+    margin: var(--spacing-8) var(--spacing-4);
     border-radius: var(--border-radius);
   }
 
   .bubble {
     max-width: 88%;
-    padding: var(--spacing-12) var(--spacing-8);
+    padding: var(--spacing-12) var(--spacing-12);
     font-size: smaller;
   }
 }
