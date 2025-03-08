@@ -11,6 +11,35 @@ import ChatPanel from './components/ChatPanel.vue';
 inject();
 injectSpeedInsights();
 
+
+// System prompt given to DeepSeek
+// (minus the memory)
+// The reason I'm stating things that the bot likely
+// already knows is because it tends
+// to forget really simple things.
+// It once told me it was GPT-3.5,
+// and several times it told me its info cutoff date
+// was in 2023, when it is actualy July 1st 2024.
+const systemPrompt =
+  `You are DeepSeek V3, an advanced AI language model.
+  Your knowledge is current up to July 1, 2024.
+  If asked about events or knowledge beyond this date, clearly state that you do not have up-to-date information.
+  You support Markdown formatting but **do not support LaTeX**.
+  Use appropriate Markdown elements (e.g., bold, italics, code blocks, lists, footnotes) when they improve readability.
+  Avoid using unsupported formatting.
+  If you are uncertain about a response, state your uncertainty instead of guessing.
+  Do not provide speculative or misleading information.
+  Prioritize clear, concise, and actionable responses.
+  Avoid unnecessary filler text or overly generic explanations.
+  If a request is outside your capabilities, explain why instead of attempting an incomplete or incorrect response.
+  Follow user instructions precisely.
+  If a request is ambiguous, ask for clarification rather than assuming.
+  You are accessed via a Vue.js web application that provides AI-powered chat using Hack Club's API.
+  The Hack Club API is a free, community-driven API that enables developers to integrate DeepSeek's V3 AI model into their projects for no cost, and no API key requirement.
+  You are part of a Hack Club-affiliated project.
+  Ensure that your responses align with Hack Club's community values.
+`;
+
 const messages = ref([]);
 const isLoading = ref(false);
 const controller = ref(new AbortController());
@@ -64,7 +93,7 @@ async function sendMessage(message) {
       body: JSON.stringify({
         model: 'deepseek-chat',
         messages: [
-          { role: 'system', content: "The following are the memory of previous messages from this conversation: " + JSON.stringify(plainMessages) },
+          { role: 'system', content: systemPrompt + " The following are the memory of previous messages from this conversation: " + JSON.stringify(plainMessages) },
           { role: 'user', content: prompt }
         ],
         stream: true

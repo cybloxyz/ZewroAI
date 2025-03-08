@@ -1,20 +1,23 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 
 const props = defineProps(['isLoading']);
 const emit = defineEmits(['send-message', 'abort-controller']);
 const inputMessage = ref('');
+
+// A computed that trims the input.
+// This is required so that the app
+// detects typing on mobile phones.
+const trimmedMessage = computed(() => inputMessage.value.trim())
 
 const submitMessage = () => {
   emit('send-message', inputMessage.value);
   inputMessage.value = '';
 };
 
-const handleEnterKey = (event) => {
-  // You can adjust the condition to detect mobile in your preferred way.
+const handleEnterKey = () => {
   if (window.innerWidth < 768) {
     // On mobile, add a newline instead of submitting.
-    // Optionally, remove .prevent on this handler if you want the default enter action.
     inputMessage.value += "\n";
   } else {
     submitMessage();
@@ -26,12 +29,12 @@ const handleEnterKey = (event) => {
 <template>
   <form class="message-form" @submit.prevent="submitMessage">
 
-    <textarea ref="textarea" id="text-input" v-model.trim="inputMessage" placeholder="Type your message..."
+    <textarea ref="textarea" id="text-input" v-model="inputMessage" placeholder="Type your message..."
       :disabled="props.isLoading" @keydown.enter.exact.prevent="handleEnterKey"
       @keydown.ctrl.enter.exact.prevent="inputMessage += '\n'"></textarea>
 
     <button type="submit" @click="props.isLoading ? $emit('abort-controller') : submitMessage"
-      :disabled="!inputMessage.trim() && !props.isLoading">
+      :disabled="!trimmedMessage && !props.isLoading">
 
       <svg v-if="!props.isLoading" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
         stroke-width="2">

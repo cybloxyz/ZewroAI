@@ -26,7 +26,20 @@ const md = new MarkdownIt({
 
 function safeRender(content) {
   try {
-    return md.render(content);
+    let rendered = md.render(content);
+    // Replace <pre> blocks with a container that includes line numbers and a copy button.
+    rendered = rendered.replace(/<pre>([\s\S]*?)<\/pre>/g, (match, codeBlock) => {
+      // Remove any wrapping <code> if present
+      const innerCode = codeBlock.replace(/^<code[^>]*>|<\/code>$/g, '');
+      return `
+<div class="code-container">
+  <div class="pre-wrapper">
+    <pre><code>${innerCode}</code></pre>
+    <button class="copy-button" onclick="copyCode(this)">Copy</button>
+  </div>
+</div>`;
+    });
+    return rendered;
   } catch (error) {
     console.error("Markdown rendering error:", error);
     return `<pre>${content}</pre>`;
@@ -69,6 +82,20 @@ onMounted(() => {
   scrollToEnd('smooth');
 });
 
+window.copyCode = function (button) {
+  // Look for code inside <pre><code> block; if not, get text from <pre>
+  const codeEl = button.parentElement.querySelector('pre code');
+  const text = codeEl ? codeEl.innerText : button.parentElement.querySelector('pre').innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    button.textContent = 'Copied!';
+    setTimeout(() => {
+      button.textContent = 'Copy';
+    }, 2000);
+  }).catch(err => {
+    console.error('Failed to copy text: ', err);
+  });
+}
+
 defineExpose({ onScroll, scrollToEnd, isAtBottom, userScrolling });
 </script>
 
@@ -86,7 +113,7 @@ defineExpose({ onScroll, scrollToEnd, isAtBottom, userScrolling });
   </div>
 </template>
 
-<style scoped>
+<style>
 .chat-wrapper {
   flex: 1;
   overflow-y: auto;
@@ -240,16 +267,6 @@ defineExpose({ onScroll, scrollToEnd, isAtBottom, userScrolling });
     margin-left: 2px;
   }
 
-  .footnote-ref::before {
-    content: '[';
-    color: var(--hc-red);
-  }
-
-  .footnote-ref::after {
-    content: ']';
-    color: var(--hc-red);
-  }
-
   .footnotes ol {
     padding-left: 1.5em;
   }
@@ -295,8 +312,9 @@ defineExpose({ onScroll, scrollToEnd, isAtBottom, userScrolling });
     }
   }
 
+
   code:not(.hljs) {
-    background: #2d2d2d;
+    background: #1e1e1e;
     padding: 0.2em 0.4em;
     border-radius: 4px;
     color: #f88b8b;
@@ -311,7 +329,6 @@ defineExpose({ onScroll, scrollToEnd, isAtBottom, userScrolling });
     margin: 1.5em 0;
 
     code {
-      background: none !important;
       padding: 0 !important;
       color: #d4d4d4 !important;
     }
@@ -350,6 +367,11 @@ defineExpose({ onScroll, scrollToEnd, isAtBottom, userScrolling });
   }
 }
 
+pre,
+code {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+}
+
 pre {
   background: #1e1e1e;
   border: 1px solid #363636 !important;
@@ -359,11 +381,65 @@ pre {
 }
 
 code {
-  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   background: #f3f4f6;
   padding: 0.2em 0.4em;
   border-radius: 0.25em;
   font-size: 0.9em;
+}
+
+.code-container {
+  position: relative;
+  margin: 1em 0;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.code-wrapper {
+  display: flex;
+  align-items: flex-start;
+}
+
+.pre-wrapper {
+  position: relative;
+}
+
+.pre-wrapper pre {
+  margin: 0;
+  padding: 0rem;
+  background: #1e1e1e !important;
+  border: 1px solid #555768 !important;
+  border-radius: 8px;
+  overflow-x: auto;
+  transition: background 0.3s ease;
+}
+
+.copy-button {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 4px 8px;
+  font-size: 0.8em;
+  background: linear-gradient(145deg, #338eda, #2d7bd2);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  z-index: 2;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.copy-button:hover {
+  background: linear-gradient(145deg, #2563eb, #1f5bb5);
+  transform: scale(1.05);
+}
+
+.copy-button:focus {
+  outline: 2px solid #ffffff;
+}
+
+/* Ensure the pre element has enough top padding to avoid overlap */
+.code-container pre {
+  padding-top: 1em !important;
 }
 
 .cursor {
