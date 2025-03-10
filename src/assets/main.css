@@ -8,7 +8,7 @@
 a,
 .green {
   text-decoration: none;
-  color: hsla(160, 100%, 37%, 1);
+  color: #33d6a6;
   transition: 0.4s;
   padding: 4px 0;
   border-radius: 4px;
@@ -16,6 +16,6 @@ a,
 
 @media (hover: hover) {
   a:hover {
-    background-color: hsla(160, 100%, 37%, 0.2);
+    background-color: #33d6a633;
   }
 }

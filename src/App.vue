@@ -3,13 +3,22 @@ import { ref, nextTick } from 'vue';
 import 'highlight.js/styles/github-dark.css';
 import { inject } from "@vercel/analytics"
 import { injectSpeedInsights } from '@vercel/speed-insights';
+import { useDark, useToggle } from "@vueuse/core";
+
+import { createConversation, storeMessages, deleteConversation as deleteConv } from './composables/storeConversations'
 
 import MessageForm from './components/MessageForm.vue';
 import ChatPanel from './components/ChatPanel.vue';
+import AppSidebar from './components/AppSidebar.vue'
+import localforage from 'localforage';
 
 // Inject analytics and performance insights
 inject();
 injectSpeedInsights();
+
+
+const isDark = useDark();
+const toggleDark = useToggle(isDark);
 
 
 // System prompt given to DeepSeek
@@ -46,6 +55,8 @@ const controller = ref(new AbortController());
 const dummy = ref(0);
 const inputMessage = ref('');
 const chatPanel = ref(null);
+const currConvo = ref('')
+const conversationTitle = ref('');
 
 async function sendMessage(message) {
   inputMessage.value = message;
@@ -141,48 +152,112 @@ async function sendMessage(message) {
   } finally {
     assistantMessage.complete = true;
     isLoading.value = false;
+    if (messages.value.length == 2) {
+      currConvo.value = await createConversation(messages, new Date());
+    } else if (messages.value.length > 2) {
+      await storeMessages(currConvo.value, messages, new Date())
+    }
+    if (currConvo.value) {
+      const convData = await localforage.getItem(`conversation_${currConvo.value}`);
+      conversationTitle.value = convData?.title || '';
+    }
     dummy.value++;
     await nextTick();
   }
 }
 
+async function changeConversation(id) {
+  currConvo.value = id;
+
+  const conv = await localforage.getItem(`conversation_${currConvo.value}`);
+  messages.value = conv && conv.messages ? conv.messages : [];
+  conversationTitle.value = conv.title;
+
+  dummy.value++;
+  await nextTick();
+  chatPanel.value.scrollToEnd("smooth");
+}
+
+async function deleteConversation(id) {
+  await deleteConv(id)
+  // Optional:
+  // If the current conversation is deleted, clear messages and currConvo,
+  // or switch to another conversation as desired.
+  if (currConvo.value === id) {
+    currConvo.value = '';
+    messages.value = [];
+    conversationTitle.value = '';
+  }
+  // Force an update
+  dummy.value++;
+  await nextTick();
+  chatPanel.value.scrollToEnd("smooth");
+}
+
+async function newConversation() {
+  currConvo.value = '';
+  messages.value = [];
+  conversationTitle.value = '';
+
+  dummy.value++;
+  await nextTick();
+}
 
 </script>
 
 <template>
-  <a href="https://hackclub.com/"
-    style="position: absolute; top: 0px; left: 60px; border: 0; z-index: 999; background-color: transparent;"
-    onmouseover="this.style.backgroundColor='transparent'" onmouseout="this.style.backgroundColor='transparent'"
-    class="flag">
-    <img src="https://assets.hackclub.com/flag-orpheus-top.svg" alt="Hack Club"
-      style="width: 140px; max-width: 100%;" />
-  </a>
   <div class="app-container">
-    <header>
-      <div class="disclaimer" style="margin-bottom: 8px;">
-        This is not an official HackClub website. API provided by <a href="https://ai.hackclub.com">ai.hackclub.com</a>
-      </div>
+    <button class="dark-toggle" @click="toggleDark()">
+      <img v-if="isDark" src="./assets/dark.svg" alt="dark mode">
+      <img v-else src="./assets/light.svg" alt="light mode">
+    </button>
 
-    </header>
+    <Suspense>
+      <AppSidebar :curr-convo="currConvo" :messages="messages" @change-conversation="changeConversation"
+        @delete-conversation="deleteConversation" @new-conversation="newConversation" />
+    </Suspense>
 
-    <ChatPanel ref="chatPanel" :messages="messages" :isLoading="isLoading" :dummy="dummy" />
+    <div class="main-container">
+      <Suspense>
+        <ChatPanel ref="chatPanel" :curr-convo="currConvo" :curr-messages="messages" :isLoading="isLoading"
+          :conversationTitle="conversationTitle" :dummy="dummy" />
+      </Suspense>
 
-    <MessageForm :isLoading="isLoading" @send-message="sendMessage" @abort-controller="controller.abort()" />
-    <p class="disclaimer" id="disclaimer">
-      AI-generated content should always be fact-checked.
-    </p>
+      <MessageForm :isLoading="isLoading" @send-message="sendMessage" @abort-controller="controller.abort()" />
+    </div>
   </div>
 </template>
 
 <style>
-@import url('https://cdn.jsdelivr.net/npm/hack-font@3.3.0/dist/web/hack.css');
+@font-face {
+  font-family: 'Phantom Sans';
+  src: url('https://assets.hackclub.com/fonts/Phantom_Sans_0.7/Regular.woff') format('woff'),
+    url('https://assets.hackclub.com/fonts/Phantom_Sans_0.7/Regular.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Phantom Sans';
+  src: url('https://assets.hackclub.com/fonts/Phantom_Sans_0.7/Italic.woff') format('woff'),
+    url('https://assets.hackclub.com/fonts/Phantom_Sans_0.7/Italic.woff2') format('woff2');
+  font-weight: normal;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Phantom Sans';
+  src: url('https://assets.hackclub.com/fonts/Phantom_Sans_0.7/Bold.woff') format('woff'),
+    url('https://assets.hackclub.com/fonts/Phantom_Sans_0.7/Bold.woff2') format('woff2');
+  font-weight: bold;
+  font-style: normal;
+  font-display: swap;
+}
 
 :root {
-  --hc-red: #ec3750;
-  --hc-yellow: #fcd34d;
-  --hc-dark: #0d0d0d;
-  --hc-card: #1a1a1a;
-  --hc-font: 'Hack', monospace;
+  --hc-font: 'Phantom Sans';
   --spacing-4: 4px;
   --spacing-8: 8px;
   --spacing-12: 12px;
@@ -198,19 +273,51 @@ body,
   padding: 0;
   height: 100dvh;
   width: 100vw;
-  background: var(--hc-dark);
-  color: #e0e0e0;
+  background: #FFFFFF;
+  color: #1f2d3d;
   font-family: var(--hc-font);
   overflow-x: hidden;
 }
 
+img {
+  user-select: none;
+  -moz-user-select: none;
+  -webkit-user-drag: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+}
+
+
+
+button {
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  outline: none;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+button:hover {
+  background-color: #8492a633;
+}
+
 .app-container {
   display: flex;
-  flex-direction: column;
-  padding: var(--spacing-12) 0 var(--spacing-8);
+  padding: 0;
   height: 100dvh;
   max-width: 100vw;
   box-sizing: border-box;
+}
+
+.main-container {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0 8px;
+  flex: 1;
+  transition: margin-left 0.3s ease;
 }
 
 header {
@@ -223,7 +330,7 @@ header {
 
 .disclaimer {
   font-size: 0.75rem;
-  color: #8e8e8e;
+  color: #3c4858;
   margin: 0;
   text-align: center;
 }
@@ -231,6 +338,28 @@ header {
 #disclaimer {
   margin-top: -8px;
 }
+
+.dark-toggle {
+  position: fixed;
+  padding: 8px;
+  width: 48px;
+  height: 48px;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+}
+
+/* Dark mode settings */
+
+.dark #app {
+  background: #121217;
+  color: #E0E0E0;
+}
+
+.dark .disclaimer {
+  color: #8e8e8e;
+}
+
 
 @media (max-width: 1024px) {
   .flag {

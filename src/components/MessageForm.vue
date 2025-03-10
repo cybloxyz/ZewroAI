@@ -36,10 +36,8 @@ const handleEnterKey = () => {
     <button type="submit" @click="props.isLoading ? $emit('abort-controller') : submitMessage"
       :disabled="!trimmedMessage && !props.isLoading">
 
-      <svg v-if="!props.isLoading" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-        stroke-width="2">
-        <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
-      </svg>
+      <!-- <svg v-if="!props.isLoading" target="../assets/send.svg" fill="currentColor" stroke="currentColor"></svg> -->
+      <img v-if="!props.isLoading" src="../assets/send.svg" style="" width="40px" height="40px">
 
       <svg v-else width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M6 18L18 6M6 6l12 12" />
@@ -48,17 +46,19 @@ const handleEnterKey = () => {
     </button>
 
   </form>
+  <p class="disclaimer" id="disclaimer">
+    AI-generated content should always be fact-checked.
+  </p>
 </template>
 
 <style scoped>
 .message-form {
   position: relative;
   bottom: var(--spacing-16);
-  background: var(--hc-card);
+  background: #e0e6ed;
   padding: var(--spacing-16);
   display: flex;
   gap: var(--spacing-12);
-  border: 2px solid #2d2d2d;
   justify-content: center;
   border-radius: calc(var(--border-radius) + var(--spacing-16));
   max-width: 800px;
@@ -76,8 +76,8 @@ const handleEnterKey = () => {
   flex: 1;
   padding: 14px;
   border-radius: var(--border-radius);
-  border: 1px solid #555768;
-  background: #40414f;
+  border: 2px solid #8492a6;
+  background: #273444;
   color: #ececf1;
   font-size: 1rem;
   transition: all 0.2s ease;
@@ -88,7 +88,7 @@ const handleEnterKey = () => {
 }
 
 .message-form textarea:focus {
-  border-color: #8492a6;
+  border-color: #338eda;
   height: 88px;
   outline: none;
 }
@@ -96,7 +96,7 @@ const handleEnterKey = () => {
 .message-form button {
   padding: 0;
   border-radius: var(--border-radius);
-  background: var(--hc-red);
+  background: #ec3750;
   color: white;
   border: none;
   display: grid;
@@ -108,7 +108,8 @@ const handleEnterKey = () => {
 }
 
 .message-form button:disabled {
-  background: #555768;
+  background: #273444;
+  border: 2px solid #8492a6;
   cursor: not-allowed;
 }
 
@@ -120,6 +121,22 @@ const handleEnterKey = () => {
 .message-form button svg {
   color: currentColor;
 }
+
+/* Dark mode styles */
+
+.dark .message-form {
+  background-color: #1f2d3d;
+}
+
+.dark .message-form textarea {
+  background-color: #17171d;
+}
+
+.dark .message-form button:disabled {
+  background-color: #17171d;
+}
+
+/* Other resolutions styles */
 
 @media (max-width: 768px) {
   .message-form {

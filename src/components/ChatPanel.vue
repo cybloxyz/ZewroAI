@@ -1,12 +1,12 @@
 <script setup>
-import { onMounted, ref } from 'vue';
-import hljs from 'highlight.js';
-import 'highlight.js/styles/github-dark.css';
-import MarkdownIt from 'markdown-it';
-import markdownItFootnote from 'markdown-it-footnote';
-import markdownItTaskLists from 'markdown-it-task-lists';
+import { onMounted, ref } from 'vue'
+import hljs from 'highlight.js'
+import 'highlight.js/styles/github-dark.css'
+import MarkdownIt from 'markdown-it'
+import markdownItFootnote from 'markdown-it-footnote'
+import markdownItTaskLists from 'markdown-it-task-lists'
 
-const props = defineProps(['messages', 'isLoading', 'dummy']);
+const props = defineProps(['currConvo', 'currMessages', 'isLoading', 'conversationTitle', 'dummy'])
 
 const md = new MarkdownIt({
   html: true,
@@ -15,96 +15,93 @@ const md = new MarkdownIt({
   highlight: (str, lang) => {
     if (lang && hljs.getLanguage(lang)) {
       try {
-        return hljs.highlight(str, { language: lang }).value;
+        return hljs.highlight(str, { language: lang }).value
       } catch (_) { }
     }
-    return '';
+    return ''
   }
 })
   .use(markdownItFootnote)
-  .use(markdownItTaskLists, { enabled: true, label: true, bulletMarker: '-' });
+  .use(markdownItTaskLists, { enabled: true, label: true, bulletMarker: '-' })
 
 function safeRender(content) {
   try {
-    let rendered = md.render(content);
-    // Replace <pre> blocks with a container that includes line numbers and a copy button.
+    let rendered = md.render(content)
+    // Replace <pre> blocks with a container that includes a copy button.
     rendered = rendered.replace(/<pre>([\s\S]*?)<\/pre>/g, (match, codeBlock) => {
-      // Remove any wrapping <code> if present
-      const innerCode = codeBlock.replace(/^<code[^>]*>|<\/code>$/g, '');
+      const innerCode = codeBlock.replace(/^<code[^>]*>|<\/code>$/g, '')
       return `
 <div class="code-container">
   <div class="pre-wrapper">
     <pre><code>${innerCode}</code></pre>
     <button class="copy-button" onclick="copyCode(this)">Copy</button>
   </div>
-</div>`;
-    });
-    return rendered;
+</div>`
+    })
+    return rendered
   } catch (error) {
-    console.error("Markdown rendering error:", error);
-    return `<pre>${content}</pre>`;
+    console.error("Markdown rendering error:", error)
+    return `<pre>${content}</pre>`
   }
 }
 
-const isAtBottom = ref(true);
-const userScrolling = ref(false);
-const chatWrapper = ref(null);
-const isAutoScrolling = ref(false);
-let scrollTimeout = null;
+// --- Scrolling related code ---
+const isAtBottom = ref(true)
+const userScrolling = ref(false)
+const chatWrapper = ref(null)
+const isAutoScrolling = ref(false)
+let scrollTimeout = null
 
 const onScroll = () => {
-  // Ignore scroll events during auto-scrolling
-  if (isAutoScrolling.value) return;
-
-  userScrolling.value = true;
-  clearTimeout(scrollTimeout);
+  if (isAutoScrolling.value) return
+  userScrolling.value = true
+  clearTimeout(scrollTimeout)
   scrollTimeout = setTimeout(() => {
-    userScrolling.value = false;
-  }, 1000);
-
-  const { scrollTop, scrollHeight, clientHeight } = chatWrapper.value;
-  isAtBottom.value = scrollHeight - (scrollTop + clientHeight) < 10;
-};
+    userScrolling.value = false
+  }, 1000)
+  const { scrollTop, scrollHeight, clientHeight } = chatWrapper.value
+  isAtBottom.value = scrollHeight - (scrollTop + clientHeight) < 10
+}
 
 const scrollToEnd = (behavior) => {
-  isAutoScrolling.value = true;
+  isAutoScrolling.value = true
   chatWrapper.value.scrollTo({
     top: chatWrapper.value.scrollHeight,
     behavior,
-  });
-  // Reset isAutoScrolling flag after a short delay
+  })
   setTimeout(() => {
-    isAutoScrolling.value = false;
-  }, 50);
-};
-
-onMounted(() => {
-  scrollToEnd('smooth');
-});
-
-window.copyCode = function (button) {
-  // Look for code inside <pre><code> block; if not, get text from <pre>
-  const codeEl = button.parentElement.querySelector('pre code');
-  const text = codeEl ? codeEl.innerText : button.parentElement.querySelector('pre').innerText;
-  navigator.clipboard.writeText(text).then(() => {
-    button.textContent = 'Copied!';
-    setTimeout(() => {
-      button.textContent = 'Copy';
-    }, 2000);
-  }).catch(err => {
-    console.error('Failed to copy text: ', err);
-  });
+    isAutoScrolling.value = false
+  }, 50)
 }
 
-defineExpose({ onScroll, scrollToEnd, isAtBottom, userScrolling });
+defineExpose({ onScroll, scrollToEnd, isAtBottom, userScrolling })
+
+window.copyCode = function (button) {
+  const codeEl = button.parentElement.querySelector('pre code')
+  const text = codeEl ? codeEl.innerText : button.parentElement.querySelector('pre').innerText
+  navigator.clipboard.writeText(text).then(() => {
+    button.textContent = 'Copied!'
+    setTimeout(() => {
+      button.textContent = 'Copy'
+    }, 2000)
+  }).catch(err => {
+    console.error('Failed to copy text: ', err)
+  })
+}
+
+onMounted(() => {
+  scrollToEnd('smooth')
+})
 </script>
 
 <template>
   <div class="chat-wrapper" ref="chatWrapper" @scroll.passive="onScroll">
+    <header class="chat-header" v-if="conversationTitle != ''">
+      <h2>{{ conversationTitle }}</h2>
+    </header>
     <div class="chat-container">
-      <div v-for="(message, idx) in messages" :key="idx + '-' + dummy" class="message" :class="message.role">
+      <div v-for="(message, idx) in currMessages" :key="idx + '-' + dummy" class="message" :class="message.role">
         <div class="bubble" :class="{ typing: !message.complete }">
-
           <div class="markdown-content" v-html="safeRender(message.content)"></div>
           <span v-if="!message.complete" class="cursor">｜</span>
         </div>
@@ -117,17 +114,15 @@ defineExpose({ onScroll, scrollToEnd, isAtBottom, userScrolling });
 .chat-wrapper {
   flex: 1;
   overflow-y: auto;
-  background: var(--hc-card);
   padding: var(--spacing-16);
-  border-radius: 28px;
+  border-radius: 0;
   max-width: 800px;
   margin: 0 auto;
   width: 100%;
-  box-shadow: 0 4px 16px rgb(0, 0, 0, 0.8);
   scroll-behavior: smooth;
   position: relative;
   z-index: 1;
-  margin-bottom: var(--spacing-8);
+  margin: var(--spacing-8) auto;
 }
 
 .chat-wrapper::-webkit-scrollbar {
@@ -135,13 +130,24 @@ defineExpose({ onScroll, scrollToEnd, isAtBottom, userScrolling });
 }
 
 .chat-wrapper::-webkit-scrollbar-track {
-  background: #2d2d2d;
+  background: #f7f7f7;
   border-radius: 4px;
 }
 
 .chat-wrapper::-webkit-scrollbar-thumb {
-  background: #555768;
+  background: #338eda;
   border-radius: 4px;
+}
+
+.chat-header {
+  text-align: left;
+}
+
+.chat-header h2 {
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  font-weight: bold;
+  font-size: 1.4rem;
 }
 
 .chat-container {
@@ -175,14 +181,12 @@ defineExpose({ onScroll, scrollToEnd, isAtBottom, userScrolling });
 }
 
 .message.assistant .bubble {
-  background: #444654;
-  border: 1px solid #555768;
-  color: #ececf1;
+  background: #e0e6ed;
 }
 
 .message.user .bubble {
-  background: var(--hc-red);
-  border: 1px solid #c42d3a;
+  background: #ec3750;
+  color: #ffffff;
 }
 
 .markdown-content {
@@ -239,7 +243,6 @@ defineExpose({ onScroll, scrollToEnd, isAtBottom, userScrolling });
 
   strong {
     font-weight: 700;
-    color: #fff;
   }
 
   em {
@@ -390,7 +393,6 @@ code {
 .code-container {
   position: relative;
   margin: 1em 0;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
 }
 
 .code-wrapper {
@@ -445,9 +447,9 @@ code {
 .cursor {
   color: #3b82f6;
   animation: blink 1.2s ease infinite;
-  vertical-align: baseline;
-  line-height: 1.2;
-  display: inline-block;
+  vertical-align: middle;
+  line-height: 1;
+  display: inline;
 }
 
 @keyframes blink {
@@ -467,6 +469,18 @@ code {
   border-bottom: 1px dashed #cc0000;
   cursor: help;
 }
+
+/* Dark mode styles */
+
+.dark .chat-wrapper::-webkit-scrollbar-track {
+  background: #252429;
+}
+
+.dark .message.assistant .bubble {
+  background: #3c4858;
+}
+
+/* Other display sizes styles */
 
 @media (max-width: 768px) {
   .chat-container {
