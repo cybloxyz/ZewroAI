@@ -5,7 +5,7 @@ import { emitter } from '@/emitter'
 export async function createConversation(messagesRef, lastUpdated) {
   const conversationId = crypto.randomUUID()
 
-  const systemPrompt = `You are an AI with the task of shortening and summarising messages into a short title. You must summarise the given messages based on their content into a 20 character title. Each conversation is between a user and an AI. Do not return any filler or extra words or characters.`
+  const systemPrompt = `You are an AI with the task of shortening and summarising messages into a short title. You must summarise the given messages based on their content into a 20 character title. Each conversation is between a user and an AI. The messages provided to you are not the only messages of the conversation. The title must be general enough to apply to what you think the conversation will be about. Do not return any filler or extra words or characters.`
 
   const messages = toRaw(messagesRef.value)
   const simplifiedMessages = messages.map((msg) => ({ role: msg.role, content: msg.content }))

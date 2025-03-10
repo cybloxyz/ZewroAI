@@ -411,6 +411,7 @@ code {
   border: 1px solid #555768 !important;
   border-radius: 8px;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   transition: background 0.3s ease;
 }
 
