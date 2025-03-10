@@ -4,8 +4,10 @@ An AI ChatBot that uses DeepSeek V3 through [HackClub's free API](https://ai.hac
 
 ## Features
 
-- Memory within a conversation
-- Full Markdown Support (excluding math LaTex syntax)
+- Chat data is stored locally on your device. No data is stored on the internet.
+- Full Markdown Support (excluding math LaTex syntax).
+- Supports for multiple chats.
+- Detailed code-blocks, including syntax highlighting based on the language and a quick-copy button.
 
 ## Todo
 
