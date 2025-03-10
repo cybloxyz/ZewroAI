@@ -30,7 +30,7 @@ const handleEnterKey = () => {
   <form class="message-form" @submit.prevent="submitMessage">
 
     <textarea ref="textarea" id="text-input" v-model="inputMessage" placeholder="Type your message..."
-      :disabled="props.isLoading" @keydown.enter.exact.prevent="handleEnterKey"
+      :disabled="props.isLoading" @keydown.enter.prevent="handleEnterKey"
       @keydown.ctrl.enter.exact.prevent="inputMessage += '\n'"></textarea>
 
     <button type="submit" @click="props.isLoading ? $emit('abort-controller') : submitMessage"
@@ -141,10 +141,13 @@ const handleEnterKey = () => {
 @media (max-width: 768px) {
   .message-form {
     padding: var(--spacing-4);
-    width: 90%;
     background-color: transparent;
     border: none;
     box-shadow: none;
+  }
+
+  .dark .message-form {
+    background-color: transparent;
   }
 
   .message-form button {

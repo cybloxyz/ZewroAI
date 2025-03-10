@@ -9,6 +9,10 @@ const props = defineProps(['currConvo', 'messages'])
 const metadata = ref([]);
 const isOpen = ref(true);
 
+if (window.innerWidth < 768) {
+  isOpen.value = false;
+}
+
 async function updateConversations() {
   const stored = await localforage.getItem("conversations_metadata");
   metadata.value = stored || []
@@ -55,7 +59,7 @@ onBeforeUnmount(() => {
           <img src="../assets/flag-standalone.svg" alt="hackclub logo" width="180px" />
         </a>
         <p class="disclaimer">This is not an official HackClub website or product.</p>
-        <p class="disclaimer">API generously provided by <a href="ai.hackclub.com">ai.hackclub.com</a>.</p>
+        <p class="disclaimer">API generously provided by <a href="https://ai.hackclub.com">ai.hackclub.com</a>.</p>
       </div>
     </div>
   </div>
