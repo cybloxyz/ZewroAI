@@ -11,11 +11,11 @@ An AI ChatBot that uses DeepSeek V3 through [HackClub's free API](https://ai.hac
 
 ## Todo
 
-- [ x ] Memory and chat persistence
-- [ x ] Multiple chats at any one time
+- [x] Memory and chat persistence
+- [x] Multiple chats at any one time
 - [ ] Customizable system prompt
 - [ ] Working memory between conversations
-- [ x ] Better code support (copy button, etc.)
+- [x] Better code support (copy button, etc.)
 
 ## VSCode Setup
 
