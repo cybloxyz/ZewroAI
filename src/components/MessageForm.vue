@@ -30,19 +30,20 @@ const handleEnterKey = () => {
   <form class="message-form" @submit.prevent="submitMessage">
 
     <textarea ref="textarea" id="text-input" v-model="inputMessage" placeholder="Type your message..."
-      :disabled="props.isLoading" @keydown.enter.prevent="handleEnterKey"
-      @keydown.ctrl.enter.exact.prevent="inputMessage += '\n'"></textarea>
+      :disabled="props.isLoading" @keydown.enter.exact.prevent="handleEnterKey"></textarea>
 
     <button type="submit" @click="props.isLoading ? $emit('abort-controller') : submitMessage"
       :disabled="!trimmedMessage && !props.isLoading">
 
       <!-- <svg v-if="!props.isLoading" target="../assets/send.svg" fill="currentColor" stroke="currentColor"></svg> -->
-      <img v-if="!props.isLoading" src="../assets/send.svg" style="" width="40px" height="40px">
-
-      <svg v-else width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M6 18L18 6M6 6l12 12" />
+      <svg v-if="!props.isLoading" xmlns="http://www.w3.org/2000/svg" stroke-width="0.5" width="40" height="40"
+        viewBox="0 0 32 32">
+        <path
+          d="M16.044,15.012c-0.005,-0.104 -0.071,-0.205 -0.198,-0.232l-7.45,-1.579c-0.231,-0.049 -0.396,-0.253 -0.396,-0.489l0,-5.712c0,-0.73 0.698,-1.159 1.419,-0.908c4.295,1.497 12.081,5.408 15.616,8.025c0.34,0.252 0.515,0.573 0.52,0.895c-0.005,0.323 -0.18,0.644 -0.52,0.896c-3.535,2.617 -11.321,6.868 -15.616,8.365c-0.721,0.251 -1.419,-0.178 -1.419,-0.908l0,-6.052c0,-0.236 0.165,-0.44 0.396,-0.489l7.45,-1.579c0.127,-0.027 0.193,-0.129 0.198,-0.233Z"
+          stroke="currentColor" fill="currentColor" />
       </svg>
 
+      <img v-else src="../assets/close.svg" alt="cancel" width="48px" height="48px" />
     </button>
 
   </form>
@@ -52,6 +53,13 @@ const handleEnterKey = () => {
 </template>
 
 <style scoped>
+#disclaimer {
+  letter-spacing: 1px;
+  word-spacing: 2px;
+  margin-bottom: 2px;
+  margin-top: -12px;
+}
+
 .message-form {
   position: relative;
   bottom: var(--spacing-16);
@@ -77,8 +85,7 @@ const handleEnterKey = () => {
   padding: 14px;
   border-radius: var(--border-radius);
   border: 2px solid #8492a6;
-  background: #273444;
-  color: #ececf1;
+  background: #ffffff;
   font-size: 1rem;
   transition: all 0.2s ease;
 }
@@ -97,7 +104,7 @@ const handleEnterKey = () => {
   padding: 0;
   border-radius: var(--border-radius);
   background: #ec3750;
-  color: white;
+  color: #1f2d3d;
   border: none;
   display: grid;
   place-items: center;
@@ -108,18 +115,19 @@ const handleEnterKey = () => {
 }
 
 .message-form button:disabled {
-  background: #273444;
+  background: #ffffff;
   border: 2px solid #8492a6;
   cursor: not-allowed;
 }
 
-.message-form button:not(:disabled):hover {
-  background: #dd3744;
-  box-shadow: 0 0 12px rgba(240, 100, 100, 0.8);
+.message-form button:not(:disabled) {
+  color: #fff;
 }
 
-.message-form button svg {
-  color: currentColor;
+.message-form button:not(:disabled):hover {
+  background: #dd3744;
+  color: #e0e6ed;
+  box-shadow: 0 0 12px rgba(240, 100, 100, 0.8);
 }
 
 /* Dark mode styles */
@@ -130,10 +138,12 @@ const handleEnterKey = () => {
 
 .dark .message-form textarea {
   background-color: #17171d;
+  color: #e0e0e0;
 }
 
 .dark .message-form button:disabled {
   background-color: #17171d;
+  color: #e0e0e0;
 }
 
 /* Other resolutions styles */

@@ -6,7 +6,7 @@ import MarkdownIt from 'markdown-it'
 import markdownItFootnote from 'markdown-it-footnote'
 import markdownItTaskLists from 'markdown-it-task-lists'
 
-const props = defineProps(['currConvo', 'currMessages', 'isLoading', 'conversationTitle', 'dummy'])
+const props = defineProps(['currConvo', 'currMessages', 'isLoading', 'conversationTitle', 'triggerRerender'])
 
 const md = new MarkdownIt({
   html: true,
@@ -24,10 +24,10 @@ const md = new MarkdownIt({
   .use(markdownItFootnote)
   .use(markdownItTaskLists, { enabled: true, label: true, bulletMarker: '-' })
 
+// Safely render full Markdown (with code block handling).
 function safeRender(content) {
   try {
     let rendered = md.render(content)
-    // Replace <pre> blocks with a container that includes a copy button.
     rendered = rendered.replace(/<pre>([\s\S]*?)<\/pre>/g, (match, codeBlock) => {
       const innerCode = codeBlock.replace(/^<code[^>]*>|<\/code>$/g, '')
       return `
@@ -38,14 +38,13 @@ function safeRender(content) {
   </div>
 </div>`
     })
-    return rendered
+    return rendered;
   } catch (error) {
     console.error("Markdown rendering error:", error)
     return `<pre>${content}</pre>`
   }
 }
 
-// --- Scrolling related code ---
 const isAtBottom = ref(true)
 const userScrolling = ref(false)
 const chatWrapper = ref(null)
@@ -90,7 +89,7 @@ window.copyCode = function (button) {
 }
 
 onMounted(() => {
-  scrollToEnd('smooth')
+  scrollToEnd('instant')
 })
 </script>
 
@@ -100,23 +99,29 @@ onMounted(() => {
       <h2>{{ conversationTitle }}</h2>
     </header>
     <div class="chat-container">
-      <div v-for="(message, idx) in currMessages" :key="idx + '-' + dummy" class="message" :class="message.role">
-        <div class="bubble" :class="{ typing: !message.complete }">
-          <div class="markdown-content" v-html="safeRender(message.content)"></div>
+      <div v-for="(message, idx) in currMessages" :key="idx" class="message" :class="message.role">
+        <span class="bubble" :class="{ typing: !message.complete }">
+
+          <!-- This is because using markdown on user messages can cause unexpected bugs -->
+          <div v-if="message.role == 'user'" :key="idx">{{ message.content }}</div>
+          <div class="markdown-content" v-else v-html="safeRender(message.content)" :key="idx + '-' + triggerRerender">
+          </div>
+
           <span v-if="!message.complete" class="cursor">｜</span>
-        </div>
+        </span>
       </div>
     </div>
   </div>
 </template>
 
+
 <style>
 .chat-wrapper {
   flex: 1;
   overflow-y: auto;
-  padding: var(--spacing-16);
+  padding: var(--spacing-16) 0 16px 0;
   border-radius: 0;
-  max-width: 800px;
+  max-width: 840px;
   margin: 0 auto;
   width: 100%;
   scroll-behavior: smooth;
@@ -140,11 +145,10 @@ onMounted(() => {
 }
 
 .chat-header {
-  text-align: left;
+  text-align: center;
 }
 
 .chat-header h2 {
-  margin: 0;
   font-family: 'Inter', sans-serif;
   font-weight: bold;
   font-size: 1.4rem;
@@ -154,7 +158,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-24);
-  padding: 0 var(--spacing-16);
+  padding: 0 3.2px 0 3px;
   overflow-anchor: none;
   scroll-behavior: smooth;
   margin: 0 auto var(--spacing-16);
@@ -163,7 +167,8 @@ onMounted(() => {
 
 .message {
   display: flex;
-  margin: var(--spacing-16) var(--spacing-16);
+  /* aligns the message with the chat title */
+  margin: var(--spacing-16) 1px;
   max-width: calc(100% - 32px);
 }
 
@@ -187,6 +192,9 @@ onMounted(() => {
 .message.user .bubble {
   background: #ec3750;
   color: #ffffff;
+
+  white-space: pre-wrap;
+  margin-right: -38px;
 }
 
 .markdown-content {

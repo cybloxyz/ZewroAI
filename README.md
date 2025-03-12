@@ -8,12 +8,13 @@ An AI ChatBot that uses DeepSeek V3 through [HackClub's free API](https://ai.hac
 - Full Markdown Support (excluding math LaTex syntax).
 - Supports for multiple chats.
 - Detailed code-blocks, including syntax highlighting based on the language and a quick-copy button.
+- Customizeable system prompt (yes, this means you can do global chat jailbreaks or add information about yourself into it.)
 
 ## Todo
 
 - [x] Memory and chat persistence
 - [x] Multiple chats at any one time
-- [ ] Customizable system prompt
+- [x] Customizable system prompt
 - [ ] Working memory between conversations
 - [x] Better code support (copy button, etc.)
 

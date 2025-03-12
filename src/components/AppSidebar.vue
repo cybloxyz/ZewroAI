@@ -34,13 +34,21 @@ onBeforeUnmount(() => {
 
 <template>
   <button @click="toggle" class="menu-toggle">
-    <img src="../assets/menu.svg" width="48px" alt="toggle menu">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" stroke="currentColor" width="32px" height="32px"
+      viewBox="0 0 32 32">
+      <path
+        d="M9 10a1 1 0 0 1 1-1h12a1 1 0 0 1 0 2H10a1 1 0 0 1-1-1Zm0 5a1 1 0 0 1 1-1h12a1 1 0 0 1 0 2H10a1 1 0 0 1-1-1Zm0 5a1 1 0 0 1 1-1h12a1 1 0 0 1 0 2H10a1 1 0 0 1-1-1Z" />
+    </svg>
   </button>
   <div class="sidebar" :class="{ active: isOpen }">
     <div class="sidebar-content-wrapper"> <!-- This is so that the items inside the sidebar appear stationary.-->
-      <button id="new-chat-button"><img src="../assets/new-chat.svg" width="48px" alt="create new chat"
-          @click="$emit('newConversation')"></button>
-      <div class="main-content">
+      <button id="new-chat-button" @click="$emit('newConversation')"><svg xmlns="http://www.w3.org/2000/svg"
+          width="48px" height="48px" viewBox="0 0 32 32">
+          <path
+            d="M26.957 4.886a1 1 0 0 0-1.414 0L14.647 15.782a6.8 6.8 0 0 0-1.407 2.058l-.003.006c-.307.7.403 1.413 1.104 1.11a6.7 6.7 0 0 0 2.083-1.416L27.31 6.653a1 1 0 0 0 0-1.414zm-8.039 3.245c.311.032.622-.071.843-.292l.737-.737c.274-.274.145-.736-.236-.804C19.078 6.088 17.67 6 16 6 8 6 6 8 6 16s2 10 10 10 10-2 10-10c0-1.507-.071-2.801-.24-3.909-.059-.39-.53-.529-.808-.251l-.757.757a1.03 1.03 0 0 0-.293.821c.064.734.098 1.587.098 2.582 0 4.015-.55 5.722-1.414 6.586S20.014 24 16 24s-5.722-.55-6.586-1.414S8 20.015 8 16c0-4.014.55-5.721 1.414-6.585S11.986 8 16 8c1.151 0 2.112.046 2.918.131"
+            fill="currentColor" />
+        </svg></button>
+      <div class=" main-content">
         <h1>Recent</h1>
         <div class="conversation-list" v-if="metadata.length">
           <div class="conversation-wrapper" v-for="data in metadata" :key="data.id">
@@ -51,6 +59,7 @@ onBeforeUnmount(() => {
             <button class="delete-button" @click.stop="$emit('deleteConversation', data.id)">
               <img src="../assets/delete.svg" width="16px" alt="delete conversation">
             </button>
+
           </div>
         </div>
       </div>
@@ -69,15 +78,22 @@ onBeforeUnmount(() => {
 @import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Karla:ital,wght@0,200..800;1,200..800&family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&family=Noticia+Text:ital,wght@0,400;0,700;1,400;1,700&family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap');
 
 .menu-toggle {
-  padding: 0;
+  display: flex;
   align-items: center;
-  display: grid;
+  justify-content: center;
+  text-align: center;
   position: fixed;
   left: 12px;
-  top: 12px;
+  top: 18px;
   width: 48px;
   height: 48px;
   z-index: 999;
+}
+
+.menu-toggle svg {
+  position: relative;
+  width: 150%;
+  height: 100%
 }
 
 .sidebar {
@@ -113,25 +129,27 @@ onBeforeUnmount(() => {
 #new-chat-button {
   padding: 0;
   position: absolute;
-  right: 12px;
-  top: 12px;
+  right: 21px;
+  top: 18px;
   width: 48px;
   height: 48px;
 }
 
 .main-content {
   margin-top: 128px;
-  padding: 0 12px;
+  padding: 0 3px 0 24.5px;
   overflow: hidden;
 }
 
 .main-content h1 {
   font-family: "Inter", sans-serif;
   font-weight: bold;
+  margin-left: -1.5px;
 }
 
 .conversation-list {
-  display: grid;
+  display: flex;
+  flex-direction: column-reverse;
   max-height: calc(100dvh - 320px);
   overflow-y: auto;
 }
@@ -143,10 +161,11 @@ onBeforeUnmount(() => {
   padding: 0 8px;
   text-align: left;
   font-size: 16px;
+  margin-right: 3px;
 }
 
 .conversation-button.active {
-  background-color: #8492a6;
+  background-color: #484e5633;
 }
 
 .sidebar-footer {
@@ -194,6 +213,10 @@ onBeforeUnmount(() => {
 
 .dark .conversation-button {
   color: #E0E0E0;
+}
+
+.dark .conversation-button.active {
+  background-color: #d4e0f333;
 }
 
 /* Different display size styles */
