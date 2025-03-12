@@ -253,6 +253,8 @@ textarea {
   background-color: #cb2c41;
 }
 
+/* Dark mode styles */
+
 .dark .settings {
   background-color: #273444;
 }
@@ -268,5 +270,88 @@ textarea {
 .dark textarea {
   background-color: #252429;
   color: #e0e0e0;
+}
+
+@media (max-width: 800px) {
+  .settings {
+    width: 90%;
+    height: 90%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    /* Center the panel */
+    margin: 0;
+    /* Remove margin-top and margin-left */
+    border-radius: 12px;
+  }
+
+  .settings-heading {
+    font-size: 20px;
+    padding: 8px 12px;
+  }
+
+  .main-content {
+    flex-direction: column;
+  }
+
+  .settings-selector {
+    flex-direction: row;
+    width: 100%;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .settings-selector button {
+    width: auto;
+    height: 36px;
+    flex: 1;
+  }
+
+  .custom-instructions,
+  .visuals,
+  .info {
+    padding: 12px;
+    height: auto;
+  }
+
+  textarea {
+    width: 100%;
+    height: 150px;
+  }
+
+  .settings-buttons {
+    height: auto;
+    padding: 12px;
+  }
+
+  .reset,
+  .save {
+    position: static;
+    width: 100%;
+    height: 48px;
+    margin-bottom: 8px;
+  }
+
+  .close-settings {
+    top: 12px;
+    right: 12px;
+    width: 36px;
+    height: 36px;
+    transform: translate(0, 0);
+    /* Ensure no offset */
+    display: flex;
+    /* Add flexbox to center the SVG */
+    align-items: center;
+    /* Vertically center the SVG */
+    justify-content: center;
+    /* Horizontally center the SVG */
+  }
+
+  .close-settings img {
+    display: block;
+    /* Ensure the image is treated as a block element */
+    margin: 0;
+    /* Remove any default margin */
+  }
 }
 </style>
