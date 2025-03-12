@@ -272,6 +272,8 @@ textarea {
   color: #e0e0e0;
 }
 
+/* Other display size styles */
+
 @media (max-width: 800px) {
   .settings {
     width: 90%;
@@ -279,9 +281,7 @@ textarea {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    /* Center the panel */
     margin: 0;
-    /* Remove margin-top and margin-left */
     border-radius: 12px;
   }
 
@@ -338,20 +338,14 @@ textarea {
     width: 36px;
     height: 36px;
     transform: translate(0, 0);
-    /* Ensure no offset */
     display: flex;
-    /* Add flexbox to center the SVG */
     align-items: center;
-    /* Vertically center the SVG */
     justify-content: center;
-    /* Horizontally center the SVG */
   }
 
   .close-settings img {
     display: block;
-    /* Ensure the image is treated as a block element */
     margin: 0;
-    /* Remove any default margin */
   }
 }
 </style>
