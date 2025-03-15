@@ -1,5 +1,5 @@
 <script setup>
-import { ref, nextTick, onMounted } from 'vue';
+import { ref, nextTick } from 'vue';
 import 'highlight.js/styles/github-dark.css';
 import { inject } from "@vercel/analytics"
 import { injectSpeedInsights } from '@vercel/speed-insights';
@@ -76,7 +76,6 @@ async function sendMessage(message) {
   // Scrolls to the bottom when a message is sent
   chatPanel.value.scrollToEnd('smooth');
 
-  console.log(settingsManager.settings.system_prompt)
 
   try {
     controller.value = new AbortController();
@@ -89,7 +88,7 @@ async function sendMessage(message) {
           { role: 'system', content: `${settingsManager.settings.system_prompt} The user's current time is ${new Date()}. The following are the memory of previous messages from this conversation: ${JSON.stringify(plainMessages)}` },
           { role: 'user', content: prompt }
         ],
-        stream: true
+        stream: true // Generated text will be sent as chunks
       }),
       signal: controller.value.signal
     });

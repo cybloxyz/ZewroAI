@@ -8,10 +8,14 @@
 a,
 .green {
   text-decoration: none;
-  color: #33d6a6;
+  color: #12b584;
   transition: 0.4s;
   padding: 4px 0;
   border-radius: 4px;
+}
+
+.dark a {
+  color: #33d6a6;
 }
 
 @media (hover: hover) {
