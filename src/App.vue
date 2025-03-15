@@ -371,6 +371,10 @@ header {
   color: #E0E0E0;
 }
 
+.dark textarea {
+  scrollbar-color: #252429 #3c4858;
+}
+
 
 @media (max-width: 1024px) {
   .flag {

@@ -6,6 +6,7 @@ const emit = defineEmits(['reloadSettings']);
 
 const isSettingsOpen = ref(false);
 const sysPrompt = ref('');
+const resetConfirmation = ref(false);
 const currTab = ref('sys-instructions'); // Default to the first tab
 
 const settingsManager = new Settings();
@@ -25,16 +26,18 @@ onMounted(async () => {
 async function reset() {
   await settingsManager.resetSettings();
   sysPrompt.value = settingsManager.settings.system_prompt;
+  resetConfirmation.value = false;
   emit('reloadSettings');
-  location.reload(); // Provides interaction feedback
+  location.reload();
 }
 
 async function save() {
   settingsManager.settings['system_prompt'] = sysPrompt.value;
   sysPrompt.value = settingsManager.settings.system_prompt;
+  resetConfirmation.value = false
   await settingsManager.saveSettings();
   emit('reloadSettings');
-  location.reload(); // Provides interaction feedback, loads settings
+  location.reload();
 }
 </script>
 
@@ -52,14 +55,19 @@ async function save() {
   <div v-if="isSettingsOpen" class="settings">
     <div class="settings-heading">
       <h1>Settings</h1>
-      <button class="close-settings" @click="isSettingsOpen = false">
-        <img src="../assets/close.svg" alt="close menu" width="48px" height="48px" />
+      <button class="close-settings" @click="isSettingsOpen = false; resetConfirmation = false">
+        <svg xmlns="http://www.w3.org/2000/svg" alt="close menu" width="48" height="48" viewBox="0 0 32 32"
+          fill="currentColor" stroke="currentColor">
+          <path
+            d="M11.121 9.707a.999.999 0 1 0-1.414 1.414l4.95 4.95-4.95 4.95a.999.999 0 1 0 1.414 1.414l4.95-4.95 4.95 4.95a1 1 0 0 0 1.414-1.414l-4.95-4.95 4.95-4.95a1 1 0 0 0-1.414-1.414l-4.95 4.95z" />
+        </svg>
       </button>
     </div>
     <div class="main-content">
       <div class="settings-selector">
         <!-- Loop through the tabs and render buttons -->
-        <button v-for="tab in tabs" :key="tab.key" :class="{ active: tab.key === currTab }" @click="currTab = tab.key">
+        <button v-for="tab in tabs" :key="tab.key" :class="{ active: tab.key === currTab }"
+          @click="currTab = tab.key; resetConfirmation = false">
           {{ tab.label }}
         </button>
       </div>
@@ -96,7 +104,9 @@ async function save() {
       </div>
     </div>
     <div class="settings-buttons">
-      <button class="reset" type="button" @click="reset">Reset to Default</button>
+      <button v-if="!resetConfirmation" class="reset" type="button" @click="resetConfirmation = true">Reset to
+        Default</button>
+      <button v-else class="reset" type="button" @click="reset">Are you sure?</button>
       <button class="save" type="submit" @click="save">Save</button>
     </div>
   </div>
@@ -183,6 +193,7 @@ async function save() {
   position: relative;
   padding: 18px;
   padding-top: 7.5px;
+  padding-right: 150px;
   height: 100%;
 }
 
@@ -241,7 +252,6 @@ textarea {
 
 .close-settings {
   position: absolute;
-  background-color: #ec3750;
   top: 18px;
   right: 18px;
   width: 48px;
@@ -250,7 +260,8 @@ textarea {
 }
 
 .close-settings:hover {
-  background-color: #cb2c41;
+  background-color: #ec3750;
+  color: #FFFFFF;
 }
 
 /* Dark mode styles */
