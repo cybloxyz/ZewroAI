@@ -88,6 +88,7 @@ const handleEnterKey = () => {
   background: #ffffff;
   font-size: 1rem;
   transition: all 0.2s ease;
+  overflow: hidden;
 }
 
 .message-form textarea::-webkit-scrollbar {
