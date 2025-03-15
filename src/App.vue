@@ -360,6 +360,7 @@ header {
 
 .dark #app {
   background: #121217;
+  scrollbar-color: #252429 #3c4858;
   color: #E0E0E0;
 }
 
@@ -371,10 +372,7 @@ header {
   color: #E0E0E0;
 }
 
-.dark textarea {
-  scrollbar-color: #252429 #3c4858;
-}
-
+/* Other display size styles */
 
 @media (max-width: 1024px) {
   .flag {
