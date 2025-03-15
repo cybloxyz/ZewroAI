@@ -42,7 +42,7 @@ async function save() {
 </script>
 
 <template>
-  <button class="settings-toggle" @click="isSettingsOpen = true">
+  <button class="settings-toggle" @click="isSettingsOpen = true" aria-label="Toggle menu">
     <svg xmlns="http://www.w3.org/2000/svg" width="48px" height="48px" viewBox="0 0 32 32" fill="currentColor"
       stroke="#currentColor">
       <path
@@ -55,7 +55,8 @@ async function save() {
   <div v-if="isSettingsOpen" class="settings">
     <div class="settings-heading">
       <h1>Settings</h1>
-      <button class="close-settings" @click="isSettingsOpen = false; resetConfirmation = false">
+      <button class="close-settings" @click="isSettingsOpen = false; resetConfirmation = false"
+        aria-label="Close settings">
         <svg xmlns="http://www.w3.org/2000/svg" alt="close menu" width="48" height="48" viewBox="0 0 32 32"
           fill="currentColor" stroke="currentColor">
           <path

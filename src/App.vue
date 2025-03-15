@@ -196,7 +196,7 @@ async function newConversation() {
       <SettingsPanel @reload-settings="settingsManager.loadSettings" />
     </Suspense>
 
-    <button class="dark-toggle" @click="toggleDark()">
+    <button class="dark-toggle" @click="toggleDark()" aria-label="Toggle light/dark mode">
       <svg v-if="isDark" width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2"
         stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
         <path d="M28 17.05 A12 12 0 1 1 14.95 4 A9.33 9.33 0 0 0 28 17.05 z"></path>
