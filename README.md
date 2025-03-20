@@ -1,6 +1,6 @@
 # Unofficial HackClub AI ChatBot
 
-An AI ChatBot that uses DeepSeek V3 through [HackClub's free API](https://ai.hackclub.com).
+An AI ChatBot that uses LLaMA 3.3 70b through [HackClub's free API](https://ai.hackclub.com).
 
 ## Features
 
@@ -8,14 +8,17 @@ An AI ChatBot that uses DeepSeek V3 through [HackClub's free API](https://ai.hac
 - Full Markdown Support (excluding math LaTex syntax).
 - Supports for multiple chats.
 - Detailed code-blocks, including syntax highlighting based on the language and a quick-copy button.
-- Customizeable system prompt (yes, this means you can do global chat jailbreaks or add information about yourself into it.)
+- Customizeable system prompt.
+- Cross-chat memory (similar to ChatGPT's functionality).
 
 ## Todo
+
+As you can see, every one of the things on my Todo list are completed. It's nice, but unfortunately that means I've run out of ideas. Please let me know what ideas you might have through the Issues page. Thanks in advance.
 
 - [x] Memory and chat persistence
 - [x] Multiple chats at any one time
 - [x] Customizable system prompt
-- [ ] Working memory between conversations
+- [x] Working memory between conversations
 - [x] Better code support (copy button, etc.)
 
 ## VSCode Setup

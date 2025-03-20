@@ -7,7 +7,9 @@ import { useDark, useToggle } from "@vueuse/core";
 import localforage from 'localforage';
 
 import { createConversation, storeMessages, deleteConversation as deleteConv } from './composables/storeConversations'
+import { updateMemory } from './composables/memory';
 import Settings from './composables/settings';
+
 
 import MessageForm from './components/MessageForm.vue';
 import ChatPanel from './components/ChatPanel.vue';
@@ -38,6 +40,8 @@ const settingsManager = new Settings();
 
 async function sendMessage(message) {
   inputMessage.value = message;
+
+  updateMemory(message, messages); // Updates global memory based on the user's input.
 
   if (!inputMessage.value.trim() || isLoading.value) return;
 
@@ -78,14 +82,15 @@ async function sendMessage(message) {
 
 
   try {
+    const global_memory = await localforage.getItem("memory") || "";
+
     controller.value = new AbortController();
     const response = await fetch("https://ai.hackclub.com/chat/completions", {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'deepseek-chat',
         messages: [
-          { role: 'system', content: `${settingsManager.settings.system_prompt} The user's current time is ${new Date()}. The following are the memory of previous messages from this conversation: ${JSON.stringify(plainMessages)}` },
+          { role: 'system', content: `${settingsManager.settings.system_prompt} The following is your memory of details from other conversations: ${global_memory}. The following are the previous messages from this conversation: ${JSON.stringify(plainMessages)}` },
           { role: 'user', content: prompt }
         ],
         stream: true // Generated text will be sent as chunks

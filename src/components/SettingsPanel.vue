@@ -1,13 +1,15 @@
 <script setup>
 import { onMounted, ref } from 'vue';
 import Settings from '@/composables/settings';
+import localforage from 'localforage';
 
 const emit = defineEmits(['reloadSettings']);
 
 const isSettingsOpen = ref(false);
 const sysPrompt = ref('');
 const resetConfirmation = ref(false);
-const currTab = ref('sys-instructions'); // Default to the first tab
+const globalMemory = ref('');
+const currTab = ref('sys-instructions'); // Default to the system instructions tab
 
 const settingsManager = new Settings();
 
@@ -15,6 +17,7 @@ const settingsManager = new Settings();
 const tabs = [
   { key: 'sys-instructions', label: 'Custom Instructions' },
   //{ key: 'visuals', label: 'Visuals' },
+  { key: 'global-memory', label: 'Global Memory' },
   { key: 'info', label: 'Info' },
 ];
 
@@ -22,6 +25,24 @@ onMounted(async () => {
   await settingsManager.loadSettings();
   sysPrompt.value = settingsManager.settings.system_prompt;
 });
+
+async function openSettings() {
+  isSettingsOpen.value = !isSettingsOpen.value;
+  formatMemory(await localforage.getItem('memory').catch(function (err) {
+    throw "Error loading global memory: " + err;
+  }));
+}
+
+// Must seperate each memory since it's stored as a string with a newline seperator
+function formatMemory(memory) {
+  if (memory === null) {
+    globalMemory.value = [];
+  }
+
+  memory = memory.replace(/\"/g, ' ');
+  memory = memory.split('\\n');
+  globalMemory.value = memory.filter((item) => item !== '');
+}
 
 async function reset() {
   await settingsManager.resetSettings();
@@ -42,7 +63,7 @@ async function save() {
 </script>
 
 <template>
-  <button class="settings-toggle" @click="isSettingsOpen = true" aria-label="Toggle menu">
+  <button class="settings-toggle" @click="openSettings" aria-label="Toggle menu">
     <svg xmlns="http://www.w3.org/2000/svg" width="48px" height="48px" viewBox="0 0 32 32" fill="currentColor"
       stroke="#currentColor">
       <path
@@ -89,6 +110,13 @@ async function save() {
         <h1>Visual Settings</h1>
         <p>Customize the appearance of the application here.</p>
       </div> -->
+
+      <div v-if="currTab === 'global-memory'" class="global-memory">
+        <h1>Global Memory</h1>
+        <ul>
+          <li v-for="memory in globalMemory" :key="memory">{{ memory }}</li>
+        </ul>
+      </div>
 
       <div v-if="currTab === 'info'" class="info">
         <h1>Information</h1>

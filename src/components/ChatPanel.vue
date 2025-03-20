@@ -130,18 +130,18 @@ onMounted(() => {
   margin: var(--spacing-8) auto;
 }
 
-.chat-wrapper::-webkit-scrollbar {
-  width: 8px;
+::-webkit-scrollbar {
+  width: 8px !important;
 }
 
-.chat-wrapper::-webkit-scrollbar-track {
-  background: #f7f7f7;
-  border-radius: 4px;
+::-webkit-scrollbar-track {
+  background: #f7f7f7 !important;
+  border-radius: 4px !important;
 }
 
-.chat-wrapper::-webkit-scrollbar-thumb {
-  background: #338eda;
-  border-radius: 4px;
+::-webkit-scrollbar-thumb {
+  background: #338eda !important;
+  border-radius: 4px !important;
 }
 
 .chat-header {
@@ -481,12 +481,13 @@ code {
 
 /* Dark mode styles */
 
+
 .dark .chat-wrapper::-webkit-scrollbar-track {
-  background: #252429;
+  background: #252429 !important;
 }
 
 .dark .message.assistant .bubble {
-  background: #3c4858;
+  background: #3c4858 !important;
 }
 
 /* Other display sizes styles */

@@ -1,4 +1,4 @@
-import localforage from 'localforage'
+import localforage from "localforage";
 
 class Settings {
   constructor() {
@@ -22,52 +22,54 @@ class Settings {
   Ensure that your responses align with Hack Club's core community values.
 `,
       constrain_chat_width: true,
-    }
+    };
 
     this.settings = {
       system_prompt: this.defaultSettings.system_prompt,
       constrain_chat_width: this.defaultSettings.constrain_chat_width,
-    }
+    };
 
-    this.loadSettings()
+    this.loadSettings();
   }
 
   async loadSettings() {
     try {
-      const savedSettings = await localforage.getItem('settings')
+      const savedSettings = await localforage.getItem("settings");
       if (savedSettings != null) {
-        this.settings = savedSettings
+        this.settings = savedSettings;
       } else {
-        await localforage.setItem('settings', this.defaultSettings).catch((err) => {
-          console.error(`Error saving default settings: ${err}`)
-        })
+        await localforage
+          .setItem("settings", this.defaultSettings)
+          .catch((err) => {
+            console.error(`Error saving default settings: ${err}`);
+          });
       }
     } catch (err) {
-      console.error('Failed to load settings from localForage:', err)
+      console.error("Failed to load settings from localForage:", err);
     }
   }
 
   async saveSettings() {
     try {
-      await localforage.setItem('settings', this.settings)
-      await this.loadSettings()
-      console.log('Settings saved to localForage.')
+      await localforage.setItem("settings", this.settings);
+      await this.loadSettings();
+      console.log("Settings saved to localForage.");
     } catch (err) {
-      console.error('Failed to save settings to localForage:', err)
+      console.error("Failed to save settings to localForage:", err);
     }
   }
 
   getSetting(key) {
-    return this.settings[key]
+    return this.settings[key];
   }
 
   async resetSettings() {
-    this.settings = this.defaultSettings
-    console.log('Settings reset to default.')
+    this.settings = this.defaultSettings;
+    console.log("Settings reset to default.");
 
     // Save the reset settings to localForage
-    await this.saveSettings()
+    await this.saveSettings();
   }
 }
 
-export default Settings
+export default Settings;
