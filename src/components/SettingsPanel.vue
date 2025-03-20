@@ -113,7 +113,7 @@ async function save() {
 
       <div v-if="currTab === 'global-memory'" class="global-memory">
         <h1>Global Memory</h1>
-        <ul>
+        <ul class="memory-list">
           <li v-for="memory in globalMemory" :key="memory">{{ memory }}</li>
         </ul>
       </div>
@@ -159,19 +159,19 @@ async function save() {
   z-index: 1000;
 }
 
-
 .settings-toggle {
-  position: fixed;
+  position: absolute;
   width: 48px;
   height: 48px;
-  right: 12px;
-  top: 18px;
+  right: 18px;
+  bottom: 18px;
   z-index: 11;
 }
 
 .settings {
   position: fixed;
   display: flex;
+  text-wrap: pretty;
   flex-direction: column;
   background-color: #e0e6ed;
   top: 50%;
@@ -230,6 +230,16 @@ async function save() {
   position: relative;
   padding: 11.5px 18px 18px 3px;
   height: 100%;
+}
+
+.global-memory {
+  width: 400px;
+  padding: 12px 18px 18px 2px;
+}
+
+.memory-list {
+  overflow-y: scroll;
+  height: 228px;
 }
 
 .info {

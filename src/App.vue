@@ -197,34 +197,11 @@ async function newConversation() {
 
 <template>
   <div class="app-container">
-    <Suspense>
-      <SettingsPanel @reload-settings="settingsManager.loadSettings" />
-    </Suspense>
-
-    <button class="dark-toggle" @click="toggleDark()" aria-label="Toggle light/dark mode">
-      <svg v-if="isDark" width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2"
-        stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
-        <path d="M28 17.05 A12 12 0 1 1 14.95 4 A9.33 9.33 0 0 0 28 17.05 z"></path>
-      </svg>
-
-      <svg v-else width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2"
-        stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="16" cy="16" r="6.67"></circle>
-        <line x1="16" y1="1.33" x2="16" y2="4"></line>
-        <line x1="16" y1="28" x2="16" y2="30.67"></line>
-        <line x1="5.63" y1="5.63" x2="7.52" y2="7.52"></line>
-        <line x1="24.48" y1="24.48" x2="26.37" y2="26.37"></line>
-        <line x1="1.33" y1="16" x2="4" y2="16"></line>
-        <line x1="28" y1="16" x2="30.67" y2="16"></line>
-        <line x1="5.63" y1="26.37" x2="7.52" y2="24.48"></line>
-        <line x1="24.48" y1="7.52" x2="26.37" y2="5.63"></line>
-      </svg>
-
-    </button>
 
     <Suspense>
       <AppSidebar :curr-convo="currConvo" :messages="messages" @change-conversation="changeConversation"
-        @delete-conversation="deleteConversation" @new-conversation="newConversation" />
+        :is-dark="isDark" @delete-conversation="deleteConversation" @new-conversation="newConversation"
+        @reload-settings="settingsManager.loadSettings" @toggle-dark="toggleDark" />
     </Suspense>
 
     <div class="main-container">
@@ -297,8 +274,6 @@ img {
   -ms-user-select: none;
 }
 
-
-
 button {
   background: transparent;
   border: none;
@@ -348,16 +323,6 @@ header {
 
 #disclaimer {
   margin-top: -8px;
-}
-
-.dark-toggle {
-  position: fixed;
-  padding: 8px;
-  width: 48px;
-  height: 48px;
-  top: 70px;
-  right: 12px;
-  z-index: 2;
 }
 
 /* Dark mode settings */

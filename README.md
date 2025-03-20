@@ -13,13 +13,20 @@ An AI ChatBot that uses LLaMA 3.3 70b through [HackClub's free API](https://ai.h
 
 ## Todo
 
-As you can see, every one of the things on my Todo list are completed. It's nice, but unfortunately that means I've run out of ideas. Please let me know what ideas you might have through the Issues page. Thanks in advance.
+Please suggest more ideas in the Issues tab.
+
+### V1
 
 - [x] Memory and chat persistence
 - [x] Multiple chats at any one time
 - [x] Customizable system prompt
 - [x] Working memory between conversations
 - [x] Better code support (copy button, etc.)
+
+### V2
+
+- [ ] Basic reasoning capabilities
+- [ ] Search capabilities
 
 ## VSCode Setup
 

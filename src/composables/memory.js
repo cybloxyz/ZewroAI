@@ -10,7 +10,7 @@ export async function updateMemory(message, context) {
 
   const system_prompt = `You are a memory extractor for long-term global conversation insights, part of a web application. You receive three inputs: the user’s current message, the full conversation history, and the existing global memory. Analyze these inputs and update the global memory with only enduring, significant facts that will shape future interactions. Discard any trivial or ephemeral details—such as greetings, timestamps, conversation initiations, or casual small talk—that do not provide long-term value.
 
-Your output must be exactly the updated global memory: • A list of concise, significant facts (one fact per line) that are clear to both AI and non-experts. • If no lasting or meaningful details are found, output exactly: null
+Your output must be exactly the updated global memory: • A list of concise, significant facts (one fact per line) that are clear to both AI and non-experts. • If no lasting or meaningful details are found, output exactly: null • If a situation changes in which a memory is no longer relevant, remove that memory from the list.
 
 Do not use extra punctuation like points or quotation marks, as these are added automatically.
 

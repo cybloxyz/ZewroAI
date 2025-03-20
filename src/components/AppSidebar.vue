@@ -3,8 +3,10 @@ import { ref, onBeforeUnmount } from 'vue';
 import localforage from 'localforage';
 import { emitter } from '@/emitter';
 
-const emit = defineEmits(['changeConversation', 'deleteConversation', 'newConversation'])
-const props = defineProps(['currConvo', 'messages'])
+import SettingsPanel from './SettingsPanel.vue';
+
+const emit = defineEmits(['changeConversation', 'deleteConversation', 'newConversation', 'reloadSettings', 'toggleDark']);
+const props = defineProps(['currConvo', 'messages', 'isDark']);
 
 const metadata = ref([]);
 const isOpen = ref(true);
@@ -62,13 +64,30 @@ onBeforeUnmount(() => {
 
           </div>
         </div>
-      </div>
-      <div class="sidebar-footer">
         <a href="https://hackclub.com" class="hc-flag">
-          <img src="../assets/flag-standalone.svg" alt="hackclub logo" width="180px" />
+          <img src="../assets/flag-standalone.svg" width="172px" alt="Hack Club flag">
         </a>
-        <p class="disclaimer">This is not an official HackClub website or product.</p>
-        <p class="disclaimer">API generously provided by <a href="https://ai.hackclub.com">ai.hackclub.com</a>.</p>
+        <SettingsPanel @reload-settings="$emit('reload-settings')" />
+        <button class="dark-toggle" @click="$emit('toggleDark')" aria-label="Toggle light/dark mode">
+          <svg v-if="isDark" width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
+            <path d="M28 17.05 A12 12 0 1 1 14.95 4 A9.33 9.33 0 0 0 28 17.05 z"></path>
+          </svg>
+
+          <svg v-else width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="16" cy="16" r="6.67"></circle>
+            <line x1="16" y1="1.33" x2="16" y2="4"></line>
+            <line x1="16" y1="28" x2="16" y2="30.67"></line>
+            <line x1="5.63" y1="5.63" x2="7.52" y2="7.52"></line>
+            <line x1="24.48" y1="24.48" x2="26.37" y2="26.37"></line>
+            <line x1="1.33" y1="16" x2="4" y2="16"></line>
+            <line x1="28" y1="16" x2="30.67" y2="16"></line>
+            <line x1="5.63" y1="26.37" x2="7.52" y2="24.48"></line>
+            <line x1="24.48" y1="7.52" x2="26.37" y2="5.63"></line>
+          </svg>
+
+        </button>
       </div>
     </div>
   </div>
@@ -88,6 +107,16 @@ onBeforeUnmount(() => {
   width: 48px;
   height: 48px;
   z-index: 999;
+}
+
+.hc-flag {
+  position: absolute;
+  bottom: 28px;
+  left: 18px;
+}
+
+.hc-flag:hover {
+  background-color: transparent;
 }
 
 .menu-toggle svg {
@@ -191,6 +220,16 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.dark-toggle {
+  position: absolute;
+  padding: 8px;
+  width: 48px;
+  height: 48px;
+  bottom: 70px;
+  right: 18px;
+  z-index: 2;
 }
 
 /* Make delete button small and unobtrusive */

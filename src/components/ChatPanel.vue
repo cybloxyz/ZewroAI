@@ -121,7 +121,7 @@ onMounted(() => {
   overflow-y: auto;
   padding: var(--spacing-16) 0 16px 0;
   border-radius: 0;
-  max-width: 840px;
+  max-width: 100%;
   margin: 0 auto;
   width: 100%;
   scroll-behavior: smooth;
