@@ -1,6 +1,6 @@
-# Quasar AI
+# Aegis AI
 
-Quasar AI is an AI ChatBot that uses LLaMA 3.3 70b through [HackClub's free API](https://ai.hackclub.com).
+Aegis AI is an AI ChatBot that uses LLaMA 3.3 70b through [HackClub's free API](https://ai.hackclub.com).
 
 ## Features
 
@@ -17,11 +17,11 @@ Please suggest more ideas in the Issues tab.
 
 ### V1
 
-- [x] Memory and chat persistence
-- [x] Multiple chats at any one time
-- [x] Customizable system prompt
-- [x] Working memory between conversations
-- [x] Better code support (copy button, etc.)
+- [x] ~~Memory and chat persistence~~
+- [x] ~~Multiple chats at any one time~~
+- [x] ~~Customizable system prompt~~
+- [x] ~~Working memory between conversations~~
+- [x] ~~Better code support (copy button, etc.)~~
 
 ### V2
 
