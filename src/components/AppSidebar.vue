@@ -2,12 +2,14 @@
 import { ref, onBeforeUnmount } from 'vue';
 import localforage from 'localforage';
 import { emitter } from '@/emitter';
+import { Motion } from 'motion-v'
 
 import SettingsPanel from './SettingsPanel.vue';
 
 const emit = defineEmits(['changeConversation', 'deleteConversation', 'newConversation', 'reloadSettings', 'toggleDark']);
 const props = defineProps(['currConvo', 'messages', 'isDark']);
 
+const hover = ref(false)
 const metadata = ref([]);
 const isOpen = ref(true);
 
