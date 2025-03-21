@@ -1,6 +1,6 @@
-# Unofficial HackClub AI ChatBot
+# Quasar AI
 
-An AI ChatBot that uses LLaMA 3.3 70b through [HackClub's free API](https://ai.hackclub.com).
+Quasar AI is an AI ChatBot that uses LLaMA 3.3 70b through [HackClub's free API](https://ai.hackclub.com).
 
 ## Features
 
@@ -35,8 +35,8 @@ Please suggest more ideas in the Issues tab.
 ### Clone Project and Move into Its Folder
 
 ```sh
-git clone https://github.com/Mostlime12195/Hackclub-AI-Chatbot.git
-cd hackclub-ai-chatbot
+git clone https://github.com/Mostlime12195/Quasar-AI-Chatbot.git
+cd quasar-ai-chatbot
 ```
 
 ### Compile and Hot-Reload for Development
@@ -49,10 +49,4 @@ npm run dev
 
 ```sh
 npm run build
-```
-
-### Lint with [ESLint](https://eslint.org/)
-
-```sh
-npm run lint
 ```

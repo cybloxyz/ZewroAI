@@ -64,9 +64,6 @@ onBeforeUnmount(() => {
 
           </div>
         </div>
-        <a href="https://hackclub.com" class="hc-flag">
-          <img src="../assets/flag-standalone.svg" width="172px" alt="Hack Club flag">
-        </a>
         <SettingsPanel @reload-settings="$emit('reload-settings')" />
         <button class="dark-toggle" @click="$emit('toggleDark')" aria-label="Toggle light/dark mode">
           <svg v-if="isDark" width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor"
