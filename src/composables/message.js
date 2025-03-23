@@ -24,6 +24,8 @@ export async function shouldUseReasoning(prompt, plainMessages) {
           - "What is the meaning of life? Please use reasoning." → true
           - "Explain the steps to solve a Rubik's Cube." → true
           - "What is the airspeed velocity of an unladen swallow?" → false
+          - "Hey! I heard you can use reasoning now." → false
+          - "Write a program that prints 'Hello, world!'" → true
 
           Current conversation context: ${JSON.stringify(plainMessages)}`,
         },
