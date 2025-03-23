@@ -8,13 +8,13 @@ import localforage from 'localforage';
 
 import { createConversation, storeMessages, deleteConversation as deleteConv } from './composables/storeConversations'
 import { updateMemory } from './composables/memory';
+import { shouldUseReasoning, regularMsg, streamChainOfThought } from './composables/message'
 import Settings from './composables/settings';
 
 
 import MessageForm from './components/MessageForm.vue';
 import ChatPanel from './components/ChatPanel.vue';
 import AppSidebar from './components/AppSidebar.vue'
-import SettingsPanel from './components/SettingsPanel.vue';
 
 
 // Inject analytics and performance insights
@@ -33,123 +33,123 @@ const inputMessage = ref('');
 const chatPanel = ref(null);
 const currConvo = ref('');
 const conversationTitle = ref('');
-const timeSinceRerender = ref(0);
 
 // Load settings (settings.js)
 const settingsManager = new Settings();
 
 async function sendMessage(message) {
+  // Set up and update memory
   inputMessage.value = message;
-
-  updateMemory(message, messages); // Updates global memory based on the user's input.
-
+  updateMemory(message, messages);
   if (!inputMessage.value.trim() || isLoading.value) return;
 
-  const plainMessages = messages.value.map(msg => ({
+  const plainMessages = messages.value.map((msg) => ({
     role: msg.role,
     content: msg.content,
-    complete: msg.complete
+    complete: msg.complete,
   }));
 
-  // Add user message
+  // Add user message and create a blank assistant message.
   messages.value.push({
-    role: 'user',
+    role: "user",
     content: inputMessage.value,
     timestamp: new Date(),
-    complete: true
+    complete: true,
   });
-
-  // Create assistant message entry
   const assistantMessage = {
-    role: 'assistant',
-    content: '',
+    role: "assistant",
+    content: "",
     timestamp: new Date(),
-    complete: false
+    complete: false,
   };
   messages.value.push(assistantMessage);
 
-  const prompt = inputMessage.value;
-  inputMessage.value = '';
-  isLoading.value = true; // True while message is generating, false once it is finished generating.
-
-  // Is required to update the DOM before scrolling to the bottom
-  // otherwise it will only scroll to just below the latest message
+  const promptText = inputMessage.value;
+  inputMessage.value = "";
+  isLoading.value = true;
   triggerRerender.value++;
   await nextTick();
+  chatPanel.value.scrollToEnd("smooth");
 
-  // Scrolls to the bottom when a message is sent
-  chatPanel.value.scrollToEnd('smooth');
-
+  const global_memory = (await localforage.getItem("memory")) || "";
+  const useReasoning = await shouldUseReasoning(promptText, plainMessages);
+  console.log("useReasoning:", useReasoning);
 
   try {
-    const global_memory = await localforage.getItem("memory") || "";
-
-    controller.value = new AbortController();
-    const response = await fetch("https://ai.hackclub.com/chat/completions", {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages: [
-          { role: 'system', content: `${settingsManager.settings.system_prompt} The following is your memory of details from other conversations: ${global_memory}. The following are the previous messages from this conversation: ${JSON.stringify(plainMessages)}` },
-          { role: 'user', content: prompt }
-        ],
-        stream: true // Generated text will be sent as chunks
-      }),
-      signal: controller.value.signal
-    });
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      const chunk = decoder.decode(value, { stream: true });
-      buffer += chunk;
-
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || ''; // keep incomplete line
-
-      for (const line of lines) {
-        const trimmedLine = line.trim();
-        if (!trimmedLine || trimmedLine === 'data: [DONE]') continue;
-
-        try {
-          const json = JSON.parse(trimmedLine.replace('data: ', ''));
-          const content = json.choices[0].delta.content;
-          if (content) {
-            assistantMessage.content += content;
-            if (new Date() - timeSinceRerender.value > 150) {
+    if (useReasoning === "\"true\"") {
+      const startTime = new Date();
+      // Chain-of-thought: iterate the stream generator.
+      for await (const chunk of streamChainOfThought(
+        settingsManager.settings.system_prompt,
+        global_memory,
+        plainMessages,
+        promptText,
+        controller
+      )) {
+        assistantMessage.content += chunk;
+        triggerRerender.value++;
+        await nextTick();
+        if (chatPanel.value.isAtBottom && !chatPanel.value.userScrolling) {
+          chatPanel.value.scrollToEnd("instant");
+        }
+      }
+      // Add completion time after reasoning is done
+      assistantMessage.reasoningCompleted = new Date();
+      assistantMessage.reasoningDuration = assistantMessage.reasoningCompleted - startTime;
+    } else {
+      // Regular message: read from a single API call.
+      const response = await regularMsg(
+        settingsManager.settings.system_prompt,
+        global_memory,
+        plainMessages,
+        promptText,
+        controller
+      );
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed === "data: [DONE]") continue;
+          try {
+            const json = JSON.parse(trimmed.replace("data: ", ""));
+            const content = json.choices[0].delta.content;
+            if (content) {
+              assistantMessage.content += content;
               triggerRerender.value++;
               await nextTick();
-              timeSinceRerender.value = new Date();
+              if (chatPanel.value.isAtBottom && !chatPanel.value.userScrolling) {
+                chatPanel.value.scrollToEnd("instant");
+              }
             }
-            if (chatPanel.value.isAtBottom && !chatPanel.value.userScrolling) {
-              chatPanel.value.scrollToEnd('instant');
-            }
+          } catch (err) {
+            console.error("Error parsing chunk:", err);
           }
-        } catch (err) {
-          console.error('Error parsing message:', err);
         }
       }
     }
   } catch (error) {
-    if (error.name !== 'AbortError') {
-      assistantMessage.content = 'Error: ' + error.message;
+    if (error.name !== "AbortError") {
+      assistantMessage.content = "Error: " + error.message;
     }
   } finally {
-    timeSinceRerender.value = 0;
     assistantMessage.complete = true;
     isLoading.value = false;
-    if (messages.value.length == 2) {
+    // Create or store conversation
+    if (messages.value.length === 2) {
       currConvo.value = await createConversation(messages, new Date());
     } else if (messages.value.length > 2) {
-      await storeMessages(currConvo.value, messages, new Date())
+      await storeMessages(currConvo.value, messages, new Date());
     }
     if (currConvo.value) {
       const convData = await localforage.getItem(`conversation_${currConvo.value}`);
-      conversationTitle.value = convData?.title || '';
+      conversationTitle.value = convData?.title || "";
     }
     triggerRerender.value++;
     await nextTick();

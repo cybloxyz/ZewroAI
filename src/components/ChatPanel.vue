@@ -45,6 +45,73 @@ function safeRender(content) {
   }
 }
 
+function isChainOfThought(content) {
+  return content.includes('🤔 Let me think this through step by step');
+}
+
+function extractReasoningSteps(content) {
+  if (!isChainOfThought(content)) return '';
+
+  // Get everything before SUMMARIZE, but remove the thinking emoji
+  return content
+    .split('### SUMMARIZE ###')[0]
+    .trim();
+}
+
+
+// Get only the final solution/summary
+function getSolutionOnly(content) {
+  if (!isChainOfThought(content)) return content;
+
+  // Return empty string while waiting for summary
+  if (!content.includes('### SUMMARIZE ###') && !content.includes('### SUMMARY ###')) {
+    return '...thinking...';
+  }
+
+  // Try to get the summary section
+  const summaryParts = content.split('### SUMMARY ###');
+  if (summaryParts.length > 1) {
+    return summaryParts[1].replace(/---+/g, '').trim();
+  }
+
+  // Fallback to SUMMARIZE section
+  const summarizeParts = content.split('### SUMMARIZE ###');
+  if (summarizeParts.length > 1) {
+    return summarizeParts[1].replace(/---+/g, '').trim();
+  }
+
+  // If no summary found, show thinking message
+  return '...thinking...';
+}
+
+// Calculate thinking time based on stored duration or timestamps
+function getThinkingTime(message) {
+  if (!message.timestamp) return '< 1s';
+
+  if (message.reasoningDuration) {
+    // Use stored duration if available
+    const seconds = Math.round(message.reasoningDuration / 1000);
+    return seconds < 60
+      ? `${seconds}s`
+      : `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+  }
+
+  // Fallback to completion timestamp if available
+  if (message.reasoningCompleted) {
+    const duration = new Date(message.reasoningCompleted) - new Date(message.timestamp);
+    const seconds = Math.round(duration / 1000);
+    return seconds < 60
+      ? `${seconds}s`
+      : `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+  }
+
+  // If neither is available (shouldn't happen), show current time difference
+  const thinkingTime = (new Date() - new Date(message.timestamp)) / 1000;
+  return thinkingTime < 60
+    ? `${Math.round(thinkingTime)}s`
+    : `${Math.round(thinkingTime / 60)}m ${Math.round(thinkingTime % 60)}s`;
+}
+
 const isAtBottom = ref(true)
 const userScrolling = ref(false)
 const chatWrapper = ref(null)
@@ -57,7 +124,7 @@ const onScroll = () => {
   clearTimeout(scrollTimeout)
   scrollTimeout = setTimeout(() => {
     userScrolling.value = false
-  }, 1000)
+  }, 200)
   const { scrollTop, scrollHeight, clientHeight } = chatWrapper.value
   isAtBottom.value = scrollHeight - (scrollTop + clientHeight) < 10
 }
@@ -95,20 +162,27 @@ onMounted(() => {
 
 <template>
   <div class="chat-wrapper" ref="chatWrapper" @scroll.passive="onScroll">
-    <header class="chat-header" v-if="conversationTitle != ''">
-      <h2>{{ conversationTitle }}</h2>
-    </header>
     <div class="chat-container">
       <div v-for="(message, idx) in currMessages" :key="idx" class="message" :class="message.role">
-        <span class="bubble" :class="{ typing: !message.complete }">
+        <div class="message-wrapper">
+          <!-- Move details above the bubble -->
+          <details v-if="message.role === 'assistant' && isChainOfThought(message.content)" class="reasoning-details">
+            <summary>
+              Reasoning process ({{ getThinkingTime(message) }})
+            </summary>
+            <div class="reasoning-steps">
+              {{ extractReasoningSteps(message.content) }}
+            </div>
+          </details>
 
-          <!-- This is because using markdown on user messages can cause unexpected bugs -->
-          <div v-if="message.role == 'user'" :key="idx">{{ message.content }}</div>
-          <div class="markdown-content" v-else v-html="safeRender(message.content)" :key="idx + '-' + triggerRerender">
-          </div>
-
-          <span v-if="!message.complete" class="cursor">｜</span>
-        </span>
+          <span class="bubble" :class="{ typing: !message.complete }">
+            <div v-if="message.role == 'user'" :key="idx">{{ message.content }}</div>
+            <div class="markdown-content" v-else v-html="safeRender(getSolutionOnly(message.content))"
+              :key="idx + '-' + triggerRerender">
+            </div>
+            <span v-if="!message.complete" class="cursor">｜</span>
+          </span>
+        </div>
       </div>
     </div>
   </div>
@@ -165,6 +239,13 @@ onMounted(() => {
   max-width: 800px;
 }
 
+.message-wrapper {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  align-items: flex-start;
+}
+
 .message {
   display: flex;
   /* aligns the message with the chat title */
@@ -174,6 +255,10 @@ onMounted(() => {
 
 .message.user {
   justify-content: flex-end;
+}
+
+.message.user .message-wrapper {
+  align-items: flex-end;
 }
 
 .bubble {
@@ -187,6 +272,10 @@ onMounted(() => {
 
 .message.assistant .bubble {
   background: #e0e6ed;
+}
+
+.message.assistant .reasoning-details {
+  margin-left: 0;
 }
 
 .message.user .bubble {
@@ -479,8 +568,61 @@ code {
   cursor: help;
 }
 
+.reasoning-details {
+  width: 100%;
+  max-width: 90%;
+  margin-bottom: 8px;
+  font-size: 0.9em;
+  order: -1;
+  /* Ensures it stays above the message bubble */
+}
+
+.reasoning-details summary {
+  cursor: pointer;
+  padding: 6px 12px;
+  width: 300px;
+  background-color: #f0f4f8;
+  border-radius: 6px;
+  color: #4a5568;
+  font-size: 0.85em;
+  user-select: none;
+  transition: background-color 0.2s ease;
+}
+
+.reasoning-details summary:hover {
+  background-color: #e2e8f0;
+}
+
+.reasoning-steps {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 12px;
+  margin-top: 4px;
+  white-space: pre-wrap;
+  font-family: monospace;
+  font-size: 0.85em;
+  color: #4a5568;
+  overflow-x: auto;
+  width: 100%;
+}
+
 /* Dark mode styles */
 
+.dark .reasoning-details summary {
+  background-color: #2d3748;
+  color: #e2e8f0;
+}
+
+.dark .reasoning-details summary:hover {
+  background-color: #2c3440;
+}
+
+.dark .reasoning-steps {
+  background-color: #1a202c;
+  border-color: #2d3748;
+  color: #a0aec0;
+}
 
 .dark .chat-wrapper::-webkit-scrollbar-track {
   background: #252429 !important;
@@ -496,6 +638,11 @@ code {
   .chat-container {
     gap: var(--spacing-8);
     padding: 0 var(--spacing-4);
+  }
+
+  .reasoning-details {
+    width: 100%;
+    font-size: 0.85em;
   }
 
   .chat-wrapper {

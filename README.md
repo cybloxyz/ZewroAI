@@ -25,7 +25,7 @@ Please suggest more ideas in the Issues tab.
 
 ### V2
 
-- [ ] Basic reasoning capabilities
+- [x] ~~Reasoning/Chain-of-Thought functionality~~ (Is implemented through prompt-chaining & CoT prompting)
 - [ ] Search capabilities
 
 ## VSCode Setup
