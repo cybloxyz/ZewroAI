@@ -17,9 +17,9 @@ const md = new MarkdownIt({
       try {
         return hljs.highlight(str, { language: lang }).value
       } catch (_) { }
+      return ''
     }
-    return ''
-  }
+  },
 })
   .use(markdownItFootnote)
   .use(markdownItTaskLists, { enabled: true, label: true, bulletMarker: '-' })
@@ -163,7 +163,7 @@ onMounted(() => {
 <template>
   <div class="chat-wrapper" ref="chatWrapper" @scroll.passive="onScroll">
     <div class="chat-container">
-      <div v-for="(message, idx) in currMessages" :key="idx" class="message" :class="message.role">
+      <div v-for="(message, idx) in currMessages" :key="message.id" class="message" :class="message.role">
         <div class="message-wrapper">
           <!-- Move details above the bubble -->
           <details v-if="message.role === 'assistant' && isChainOfThought(message.content)" class="reasoning-details">
@@ -175,33 +175,67 @@ onMounted(() => {
             </div>
           </details>
 
-          <span class="bubble" :class="{ typing: !message.complete }">
-            <div v-if="message.role == 'user'" :key="idx">{{ message.content }}</div>
-            <div class="markdown-content" v-else v-html="safeRender(getSolutionOnly(message.content))"
-              :key="idx + '-' + triggerRerender">
-            </div>
-            <span v-if="!message.complete" class="cursor">｜</span>
-          </span>
+          <transition name="bubble-fade" appear>
+            <span class="bubble" :class="{ typing: !message.complete }" :key="message.id">
+              <div v-if="message.role == 'user'" :key="message.id + '-user'">{{ message.content }}</div>
+              <div class="markdown-content" v-else v-html="safeRender(getSolutionOnly(message.content))"
+                :key="message.id + '-assistant-' + triggerRerender">
+              </div>
+              <span v-if="!message.complete" class="cursor">｜</span>
+            </span>
+          </transition>
         </div>
       </div>
     </div>
   </div>
 </template>
 
-
 <style>
 .chat-wrapper {
   flex: 1;
   overflow-y: auto;
-  padding: var(--spacing-16) 0 16px 0;
-  border-radius: 0;
-  max-width: 100%;
-  margin: 0 auto;
+  overflow-x: hidden;
+  min-height: 0;
+  margin: 8px 0;
+}
+
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
   width: 100%;
-  scroll-behavior: smooth;
+  max-width: 800px;
+  /* Match the main container width */
+  margin: 0 auto;
+  padding: 16px 16px 16px 16px;
+  box-sizing: border-box;
+}
+
+.message {
+  display: flex;
+  width: 100%;
+}
+
+.message-wrapper {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.bubble {
+  max-width: 90%;
+  padding: 16px;
+  border-radius: 24px;
+  line-height: 1.5;
+  font-size: 1rem;
   position: relative;
-  z-index: 1;
-  margin: var(--spacing-8) auto;
+}
+
+/* Remove margin-right from user bubble that was causing issues */
+.message.user .bubble {
+  background: #ec3750;
+  color: #ffffff;
+  white-space: pre-wrap;
 }
 
 ::-webkit-scrollbar {
@@ -228,46 +262,12 @@ onMounted(() => {
   font-size: 1.4rem;
 }
 
-.chat-container {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-24);
-  padding: 0 3.2px 0 3px;
-  overflow-anchor: none;
-  scroll-behavior: smooth;
-  margin: 0 auto var(--spacing-16);
-  max-width: 800px;
-}
-
-.message-wrapper {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  align-items: flex-start;
-}
-
-.message {
-  display: flex;
-  /* aligns the message with the chat title */
-  margin: var(--spacing-16) 1px;
-  max-width: calc(100% - 32px);
-}
-
 .message.user {
   justify-content: flex-end;
 }
 
 .message.user .message-wrapper {
   align-items: flex-end;
-}
-
-.bubble {
-  max-width: 90%;
-  padding: 20px;
-  border-radius: 24px;
-  line-height: 1.5;
-  font-size: 1rem;
-  position: relative;
 }
 
 .message.assistant .bubble {
@@ -283,7 +283,6 @@ onMounted(() => {
   color: #ffffff;
 
   white-space: pre-wrap;
-  margin-right: -38px;
 }
 
 .markdown-content {
@@ -656,5 +655,20 @@ code {
     padding: var(--spacing-12) var(--spacing-12);
     font-size: smaller;
   }
+}
+
+.bubble-fade-enter-active,
+.bubble-fade-leave-active {
+  transition: opacity 0.35s cubic-bezier(.4, 1.6, .6, 1), transform 0.35s cubic-bezier(.4, 1.6, .6, 1);
+}
+
+.bubble-fade-enter-from {
+  opacity: 0;
+  transform: translateY(16px) scale(0.98);
+}
+
+.bubble-fade-enter-to {
+  opacity: 1;
+  transform: translateY(0) scale(1);
 }
 </style>

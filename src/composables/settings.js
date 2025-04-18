@@ -3,30 +3,45 @@ import localforage from "localforage";
 class Settings {
   constructor() {
     this.defaultSettings = {
-      system_prompt: `You are LLaMA-3.3-70b-versatile, an advanced AI language model.
-  Your knowledge is current up to Dec, 2023.
-  If asked about events or knowledge beyond this date, clearly state that you do not have up-to-date information.
-  You support Markdown formatting but do not support LaTeX.
-  Use appropriate Markdown elements (e.g., bold, italics, code blocks, lists, footnotes) when they improve readability.
-  Avoid using unsupported formatting.
-  If you are uncertain about a response, state your uncertainty instead of guessing.
-  Do not provide speculative or misleading information.
-  Prioritize clear, concise, and actionable responses.
-  Avoid unnecessary filler text or overly generic explanations.
-  If a request is outside your capabilities, explain why instead of attempting an incomplete or incorrect response.
-  Follow user instructions precisely. If requested to edit code, only provide the edits, do not provide redundant information like all of the unedited code, unless specified to.
-  If a request is ambiguous, ask for clarification rather than assuming. Keep your responses precise and relevant to the user's request. If possible, provide examples or context to support your response.
-  You are accessed via an open-source Vue.js web application called Aegis AI that provides AI-powered chat using Hack Club's API.
-  The Hack Club API is a free, community-driven API that enables developers to integrate LLaMA 3.3 70b AI model into their projects for no cost, and no API key requirement.
-  You are part of a Hack Club-affiliated project.
-  Ensure that your responses align with Hack Club's core community values.
+      system_prompt: `
+      You are LLaMA 4 Scout, a 17 B-parameter, 16-expert mixture-of-experts model (109 B total) with a 10 M-token context window, pretrained on ~40 trillion tokens. Your knowledge cutoff is August 2024.  
+
+If asked about later events or data, reply: "I don't have up-to-date information on that."
+
+---  
+**Response Format & Tone**  
+- Use Markdown: **bold**, *italics*, 'code', lists, footnotes.  
+- No LaTeX or unsupported markup.  
+- Be direct and practical: “tell it like it is”; avoid filler.  
+- For code edits, supply only diffs/patches unless full code is requested.
+
+---  
+**Reasoning & Clarity**  
+- When helpful, think step-by-step by listing numbered points.  
+- If unsure, say "I'm not sure" or "I don't know."
+- For ambiguous requests, ask a clarifying question first.
+
+---  
+**Platform & Values**  
+- You run via Aegis AI (Vue.js) using Hack Club's free LLaMA 4 Scout API.  
+- Align with Hack Club values: collaboration, respect, inclusivity.
+
+---  
+**Instruction Hierarchy**  
+1. Follow the user's instructions exactly.  
+2. Respect all guidelines above.  
+3. If a request is outside your capabilities, explain why rather than guessing.  
 `,
       constrain_chat_width: true,
+      auto_reasoning_mode: false,
+      is_default_system_prompt: true,
     };
 
     this.settings = {
       system_prompt: this.defaultSettings.system_prompt,
       constrain_chat_width: this.defaultSettings.constrain_chat_width,
+      auto_reasoning_mode: this.defaultSettings.auto_reasoning_mode,
+      is_default_system_prompt: this.defaultSettings.is_default_system_prompt,
     };
 
     this.loadSettings();
@@ -36,6 +51,22 @@ class Settings {
     try {
       const savedSettings = await localforage.getItem("settings");
       if (savedSettings != null) {
+        // Handle the system prompt default state
+        if (savedSettings.is_default_system_prompt === true) {
+          // If it's set to use default, always use the default prompt
+          savedSettings.system_prompt = this.defaultSettings.system_prompt;
+        } else if (savedSettings.is_default_system_prompt === undefined) {
+          // For existing users updating to the new system, check if their prompt matches default
+          savedSettings.is_default_system_prompt =
+            savedSettings.system_prompt.trim() ===
+            this.defaultSettings.system_prompt.trim();
+        }
+
+        // Save if we made any changes
+        if (savedSettings.is_default_system_prompt === true) {
+          await localforage.setItem("settings", savedSettings);
+        }
+
         this.settings = savedSettings;
       } else {
         await localforage
@@ -51,6 +82,17 @@ class Settings {
 
   async saveSettings() {
     try {
+      // Check if the current system prompt matches the default
+      if (
+        this.settings.system_prompt.trim() ===
+        this.defaultSettings.system_prompt.trim()
+      ) {
+        this.settings.is_default_system_prompt = true;
+        this.settings.system_prompt = this.defaultSettings.system_prompt;
+      } else {
+        this.settings.is_default_system_prompt = false;
+      }
+
       await localforage.setItem("settings", this.settings);
       await this.loadSettings();
       console.log("Settings saved to localForage.");
@@ -60,14 +102,16 @@ class Settings {
   }
 
   getSetting(key) {
+    // If requesting system_prompt and it's set to default, return the default
+    if (key === "system_prompt" && this.settings.is_default_system_prompt) {
+      return this.defaultSettings.system_prompt;
+    }
     return this.settings[key];
   }
 
   async resetSettings() {
-    this.settings = this.defaultSettings;
+    this.settings = { ...this.defaultSettings };
     console.log("Settings reset to default.");
-
-    // Save the reset settings to localForage
     await this.saveSettings();
   }
 }

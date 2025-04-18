@@ -1,5 +1,5 @@
 <script setup>
-import { ref, nextTick } from 'vue';
+import { ref, nextTick, onMounted } from 'vue';
 import 'highlight.js/styles/github-dark.css';
 import { inject } from "@vercel/analytics"
 import { injectSpeedInsights } from '@vercel/speed-insights';
@@ -15,9 +15,10 @@ import Settings from './composables/settings';
 import MessageForm from './components/MessageForm.vue';
 import ChatPanel from './components/ChatPanel.vue';
 import AppSidebar from './components/AppSidebar.vue'
+import SettingsPanel from './components/SettingsPanel.vue'
 
 
-// Inject analytics and performance insights
+// Inject Vercel's analytics and performance insights
 inject();
 injectSpeedInsights();
 
@@ -27,21 +28,42 @@ const toggleDark = useToggle(isDark);
 
 const messages = ref([]);
 const isLoading = ref(false);
-const controller = ref(new AbortController());
-const triggerRerender = ref(0);
+const controller = ref(new AbortController()); // Used to abort fetch requests
+const triggerRerender = ref(0); // Used to force re-rendering of the chat panel
 const inputMessage = ref('');
 const chatPanel = ref(null);
 const currConvo = ref('');
 const conversationTitle = ref('');
 
+const autoReasoningMode = ref(false); // If true, chooses between reasoning and regular models automatically.
+const sidebarOpen = ref(true);
+const chatLoading = ref(false);
+
+function toggleSidebar() {
+  sidebarOpen.value = !sidebarOpen.value;
+}
+
 // Load settings (settings.js)
 const settingsManager = new Settings();
 
-async function sendMessage(message) {
-  // Set up and update memory
+// Loads settings on load
+onMounted(async () => {
+  await settingsManager.loadSettings();
+  autoReasoningMode.value = settingsManager.settings.auto_reasoning_mode ?? true;
+});
+
+// Helper to generate unique IDs for messages
+function generateId() {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+}
+
+async function sendMessage(message, reasoningOverride) {
+  if (!message.trim() || isLoading.value) return;
+
+  // Create a new controller for each message
+  controller.value = new AbortController();
   inputMessage.value = message;
   updateMemory(message, messages);
-  if (!inputMessage.value.trim() || isLoading.value) return;
 
   const plainMessages = messages.value.map((msg) => ({
     role: msg.role,
@@ -49,20 +71,25 @@ async function sendMessage(message) {
     complete: msg.complete,
   }));
 
-  // Add user message and create a blank assistant message.
-  messages.value.push({
+  // Add user message with unique id
+  const userMsg = {
+    id: generateId(),
     role: "user",
     content: inputMessage.value,
     timestamp: new Date(),
     complete: true,
-  });
-  const assistantMessage = {
+  };
+  messages.value.push(userMsg);
+
+  // Add assistant message with unique id
+  const assistantMsg = {
+    id: generateId(),
     role: "assistant",
     content: "",
     timestamp: new Date(),
     complete: false,
   };
-  messages.value.push(assistantMessage);
+  messages.value.push(assistantMsg);
 
   const promptText = inputMessage.value;
   inputMessage.value = "";
@@ -71,8 +98,15 @@ async function sendMessage(message) {
   await nextTick();
   chatPanel.value.scrollToEnd("smooth");
 
-  const global_memory = (await localforage.getItem("memory")) || "";
-  const useReasoning = await shouldUseReasoning(promptText, plainMessages);
+  const global_memory = (await localforage.getItem("global_chatbot_memory")) || "";
+  let useReasoning;
+  if (reasoningOverride === true) {
+    useReasoning = '"true"';
+  } else if (autoReasoningMode.value) {
+    useReasoning = await shouldUseReasoning(promptText, plainMessages);
+  } else {
+    useReasoning = '"false"';
+  }
   console.log("useReasoning:", useReasoning);
 
   try {
@@ -86,7 +120,8 @@ async function sendMessage(message) {
         promptText,
         controller
       )) {
-        assistantMessage.content += chunk;
+        // Update the last assistant message's content in-place
+        messages.value[messages.value.length - 1].content += chunk;
         triggerRerender.value++;
         await nextTick();
         if (chatPanel.value.isAtBottom && !chatPanel.value.userScrolling) {
@@ -94,8 +129,8 @@ async function sendMessage(message) {
         }
       }
       // Add completion time after reasoning is done
-      assistantMessage.reasoningCompleted = new Date();
-      assistantMessage.reasoningDuration = assistantMessage.reasoningCompleted - startTime;
+      messages.value[messages.value.length - 1].reasoningCompleted = new Date();
+      messages.value[messages.value.length - 1].reasoningDuration = messages.value[messages.value.length - 1].reasoningCompleted - startTime;
     } else {
       // Regular message: read from a single API call.
       const response = await regularMsg(
@@ -121,7 +156,8 @@ async function sendMessage(message) {
             const json = JSON.parse(trimmed.replace("data: ", ""));
             const content = json.choices[0].delta.content;
             if (content) {
-              assistantMessage.content += content;
+              // Update the last assistant message's content in-place
+              messages.value[messages.value.length - 1].content += content;
               triggerRerender.value++;
               await nextTick();
               if (chatPanel.value.isAtBottom && !chatPanel.value.userScrolling) {
@@ -136,10 +172,10 @@ async function sendMessage(message) {
     }
   } catch (error) {
     if (error.name !== "AbortError") {
-      assistantMessage.content = "Error: " + error.message;
+      messages.value[messages.value.length - 1].content = "Error: " + error.message;
     }
   } finally {
-    assistantMessage.complete = true;
+    messages.value[messages.value.length - 1].complete = true;
     isLoading.value = false;
     // Create or store conversation
     if (messages.value.length === 2) {
@@ -157,12 +193,14 @@ async function sendMessage(message) {
 }
 
 async function changeConversation(id) {
+  chatLoading.value = true;
+  messages.value = [];
   currConvo.value = id;
 
   const conv = await localforage.getItem(`conversation_${currConvo.value}`);
   messages.value = conv && conv.messages ? conv.messages : [];
-  conversationTitle.value = conv.title;
-
+  conversationTitle.value = conv?.title || '';
+  chatLoading.value = false;
   triggerRerender.value++;
   await nextTick();
   chatPanel.value.scrollToEnd("instant");
@@ -197,20 +235,30 @@ async function newConversation() {
 
 <template>
   <div class="app-container">
-
+    <button class="global-menu-toggle" :class="{ dark: isDark }" @click="toggleSidebar" aria-label="Toggle menu">
+      <img src="@/assets/menu.svg" alt="Menu" />
+    </button>
     <Suspense>
-      <AppSidebar :curr-convo="currConvo" :messages="messages" @change-conversation="changeConversation"
+      <AppSidebar :curr-convo="currConvo" :messages="messages" :is-open="sidebarOpen"
+        @close-sidebar="sidebarOpen = false" @toggle-sidebar="toggleSidebar" @change-conversation="changeConversation"
         :is-dark="isDark" @delete-conversation="deleteConversation" @new-conversation="newConversation"
         @reload-settings="settingsManager.loadSettings" @toggle-dark="toggleDark" />
     </Suspense>
-
-    <div class="main-container">
-      <Suspense>
-        <ChatPanel ref="chatPanel" :curr-convo="currConvo" :curr-messages="messages" :isLoading="isLoading"
-          :conversationTitle="conversationTitle" :trigger-rerender="triggerRerender" />
-      </Suspense>
-
-      <MessageForm :isLoading="isLoading" @send-message="sendMessage" @abort-controller="controller.abort()" />
+    <SettingsPanel />
+    <!-- 
+      .main-container always fills the available space.
+      .main-content-inner centers and constrains the chat content for readability.
+      This ensures the chat panel's scrollbar is always at the window edge.
+    -->
+    <div class="main-container" :class="{ 'sidebar-open': sidebarOpen }">
+      <div class="main-content-inner">
+        <Suspense>
+          <ChatPanel ref="chatPanel" :curr-convo="currConvo" :curr-messages="messages" :isLoading="isLoading"
+            :conversationTitle="conversationTitle" :trigger-rerender="triggerRerender" />
+        </Suspense>
+        <MessageForm :isLoading="isLoading" :autoReasoningMode="autoReasoningMode" @send-message="sendMessage"
+          @abort-controller="controller.abort()" />
+      </div>
     </div>
   </div>
 </template>
@@ -243,6 +291,10 @@ async function newConversation() {
   font-display: swap;
 }
 
+a:hover {
+  background-color: transparent;
+}
+
 :root {
   --hc-font: 'Phantom Sans';
   --spacing-4: 4px;
@@ -264,6 +316,7 @@ body,
   color: #1f2d3d;
   font-family: var(--hc-font);
   overflow-x: hidden;
+  /* Prevents unwanted horizontal scrollbars */
 }
 
 img {
@@ -297,14 +350,64 @@ button:hover {
   box-sizing: border-box;
 }
 
+/* 
+  .main-container fills the viewport height and available width.
+  Uses flexbox to allow the chat panel to grow/shrink and keep the message form at the bottom.
+*/
 .main-container {
   display: flex;
   flex-direction: column;
-  margin: 0;
-  padding: 0 8px;
-  flex: 1;
-  transition: margin-left 0.3s ease;
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100dvh;
+  /* Fill viewport height so chat panel can scroll independently */
+  transition: margin-left 0.3s cubic-bezier(.4, 1, .6, 1);
+  margin-left: 0;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
+
+/* Sidebar open shifts main content right by sidebar width (280px) */
+@media (min-width: 900px) {
+  .main-container.sidebar-open {
+    margin-left: 280px;
+  }
+}
+
+/* 
+  .main-content-inner is a flex column that fills the container height.
+  Ensures chat panel and message form are stacked vertically.
+*/
+.main-content-inner {
+  width: 100%;
+  max-width: 800px;
+  /* Arbitrary: 800px is a common readable width for chat */
+  margin: 0 auto;
+  padding: 0 8px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  /* Fill parent height for proper flex behavior */
+}
+
+/* On mobile, fill width and reduce padding */
+@media (max-width: 900px) {
+  .main-content-inner {
+    max-width: 100vw;
+    margin: 0 auto;
+    padding: 0 4px;
+  }
+}
+
+/* 
+  Ensure the chat panel (ChatPanel.vue's .chat-wrapper) is the only scrollable area.
+  The following styles should be in ChatPanel.vue, but are documented here for clarity:
+  - .chat-wrapper { flex: 1 1 0; overflow-y: auto; overflow-x: hidden; min-height: 0; }
+  This keeps the message form always visible at the bottom, and only the chat scrolls.
+*/
 
 header {
   background: var(--hc-dark);
@@ -362,6 +465,50 @@ header {
 
   header {
     padding-top: 0px;
+  }
+}
+
+.global-menu-toggle {
+  position: fixed;
+  top: 8px;
+  left: 4px;
+  z-index: 2001;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  transition: background 0.18s;
+}
+
+.global-menu-toggle img {
+  width: 44px;
+  height: 44px;
+  display: block;
+  filter: none;
+}
+
+.global-menu-toggle.dark img {
+  filter: invert(1) brightness(1.2);
+}
+
+
+
+@media (max-width: 600px) {
+  .global-menu-toggle {
+    width: 48px;
+    height: 48px;
+  }
+
+  .global-menu-toggle img {
+    width: 20px;
+    height: 20px;
   }
 }
 </style>

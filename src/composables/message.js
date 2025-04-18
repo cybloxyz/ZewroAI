@@ -1,74 +1,177 @@
-// Determine if we should use chain-of-thought based on the prompt and conversation history.
-export async function shouldUseReasoning(prompt, plainMessages) {
-  const response = await fetch("https://ai.hackclub.com/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      messages: [
-        {
-          role: "system",
-          content: `Analyze the query STRICTLY through these lenses. You MUST respond EXACTLY "true" or "false" with NO punctuation.
+/**
+ * @fileoverview Interacts with the Llama 4 Scout AI model.
+ */
 
-          Overrides:
-          - If the prompt includes "use reasoning", "explain step-by-step", or similar, return "true".
-          - If the prompt includes "no reasoning", return "false".
+// Centralized API endpoint
+const API_ENDPOINT = "https://ai.hackclub.com/chat/completions"; // Replace if needed
 
-          Otherwise:
-          - Return "true" if the prompt involves multi-step problem solving, mathematical calculations, coding tasks, logical analysis, or interdependent steps.
-          - Return "false" for simple factual or general queries.
-
-          Examples:
-          - "Calculate the derivative of x^2 + 3x." → true
-          - "What is the capital of Italy?" → false
-          - "What is the meaning of life?" → false (unless preceded or followed by a direct request for reasoning)
-          - "What is the meaning of life? Please use reasoning." → true
-          - "Explain the steps to solve a Rubik's Cube." → true
-          - "What is the airspeed velocity of an unladen swallow?" → false
-          - "Hey! I heard you can use reasoning now?" → false
-          - "Write a program that prints 'Hello, world!'" → true
-
-          - If asking about processes/methods without explicit instruction → true
-          - If requesting comparisons/advantages/disadvantages → true
-          - If containing multiple questions → true
-          - If using ambiguous terms like "it", "they" needing context → true
-
-          Current conversation context: ${JSON.stringify(plainMessages)}`,
-        },
-        { role: "user", content: prompt },
-      ],
-      stream: false,
-    }),
+/**
+ * Helper function to log message arrays as raw text to the console.
+ * @param {object[]} messages - Array of message objects.
+ * @param {string} prefix - Prefix for each log line.
+ */
+function _logMessagesRaw(messages, prefix) {
+  console.log(`${prefix} Messages:`);
+  messages.forEach((msg) => {
+    console.log(`${prefix} Role: ${msg.role}`);
+    const contentToLog =
+      typeof msg.content === "string"
+        ? msg.content
+        : JSON.stringify(msg.content);
+    console.log(`${prefix} Content:\n${contentToLog}`);
+    console.log(`${prefix} ---`);
   });
-  const data = await response.json();
-  return JSON.stringify(data.choices[0].message.content);
 }
 
-// A helper that reads the streamed response and yields full parsed chunks
-async function* readStream(response) {
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() || "";
-    for (const line of lines) {
-      const trimmedLine = line.trim();
-      if (!trimmedLine || trimmedLine === "data: [DONE]") continue;
-      try {
-        const json = JSON.parse(trimmedLine.replace("data: ", ""));
-        const content = json.choices[0].delta.content;
-        if (content) yield content;
-      } catch (err) {
-        console.error("Error parsing stream chunk:", err);
-      }
+/**
+ * Helper function to interact with the Llama 4 Scout API.
+ * Handles fetch requests, basic error handling, and logging raw text.
+ * @param {object[]} messages - The array of message objects for the API call.
+ * @param {boolean} stream - Whether to request a streaming response.
+ * @param {AbortSignal} signal - AbortController signal for cancellation.
+ * @param {string} requestDescription - A description for logging purposes.
+ * @returns {Promise<object|Response>} - Promise resolving to JSON data or Response.
+ * @throws {Error} If the API call fails.
+ */
+async function _callLlama4Scout(messages, stream, signal, requestDescription) {
+  console.log(`=== NEW REQUEST === (${requestDescription})`);
+  _logMessagesRaw(messages, `[${requestDescription} Request]`);
+
+  try {
+    const response = await fetch(API_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        messages: messages,
+        stream: stream,
+      }),
+      signal: signal,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(
+        `[${requestDescription}] API Error Status: ${response.status}`
+      );
+      console.error(
+        `[${requestDescription}] API Error Response:\n${errorText}`
+      );
+      throw new Error(
+        `API call failed for ${requestDescription} with status ${response.status}`
+      );
     }
+
+    console.log(
+      `[${requestDescription}] API call successful (stream=${stream}).`
+    );
+    return stream ? response : await response.json();
+  } catch (error) {
+    if (error.name === "AbortError") {
+      console.log(`[${requestDescription}] API call aborted.`);
+    } else {
+      console.error(`[${requestDescription}] Fetch error: ${error.message}`);
+      console.error(error.stack);
+    }
+    throw error;
   }
 }
 
-// An async generator that chains multiple API calls if needed.
+/**
+ * Determines if a simulated reasoning process (chain-of-thought) should be used.
+ * (This function remains the same)
+ * @param {string} prompt - The user's latest input prompt.
+ * @param {object[]} plainMessages - Simplified conversation history.
+ * @returns {Promise<boolean>} - Promise resolving to true/false.
+ */
+export async function shouldUseReasoning(prompt, plainMessages) {
+  let historyString = "No history provided.";
+  if (plainMessages && plainMessages.length > 0) {
+    historyString = plainMessages
+      .map((msg) => `${msg.role}: ${msg.content}`)
+      .join("\n");
+  }
+
+  const systemMsg = `You are an analyzer determining if a complex reasoning process is needed for a user query. Analyze the user's query and conversation history based on the rules below. First, briefly explain your reasoning in one sentence, then conclude with "Decision: true" or "Decision: false" on a new line.
+
+**Conversation History:**
+${historyString}
+
+**Analysis Rules:**
+1.  **Overrides:**
+    * If the LATEST user query contains keywords like "use reasoning", "show thoughts", "think step-by-step", "agentic", "plan and execute", respond with "true".
+    * If the LATEST user query contains keywords like "no reasoning", "simple answer", "quick response", respond with "false".
+2.  **Complexity Assessment (if no overrides):**
+    * Respond with "true" if the query likely requires multiple steps, planning, logical deduction, calculations, code generation, or breaking down into sub-problems. Examples: "Write a python script for...", "Compare the pros and cons of...", "Plan a trip to...".
+    * Respond with "false" if the query asks for simple facts, definitions, summarizations of provided text, or straightforward instructions. Examples: "What is the capital of France?", "Summarize this text: ...", "Hello".
+
+**Your Task:** Analyze the LATEST user query below in the context of the history. Provide a one-sentence rationale, then the decision.
+
+**Latest User Query:**
+${prompt}`;
+
+  const messages = [{ role: "system", content: systemMsg }];
+
+  try {
+    const data = await _callLlama4Scout(
+      messages,
+      false,
+      null,
+      "Reasoning Check"
+    );
+    if (
+      !data ||
+      !data.choices ||
+      data.choices.length === 0 ||
+      !data.choices[0].message
+    ) {
+      console.error(
+        "[Reasoning Check] Invalid response structure received from API."
+      );
+      throw new Error(
+        "Received invalid response structure from reasoning check API call."
+      );
+    }
+    const rawContent = data.choices[0].message.content.trim();
+    console.log("[Reasoning Check] Raw LLM Response:\n" + rawContent);
+    const decisionMatch = rawContent.match(/Decision:\s*(true|false)$/i);
+    if (decisionMatch && decisionMatch[1]) {
+      const decision = decisionMatch[1].toLowerCase() === "true";
+      console.log("[Reasoning Check] Decision: " + decision);
+      return decision;
+    } else {
+      console.warn(
+        "[Reasoning Check] Could not find 'Decision: true/false'. Attempting fallback interpretation based on raw text."
+      );
+      if (rawContent.toLowerCase().includes("true")) {
+        console.log("[Reasoning Check] Fallback decision: true");
+        return true;
+      }
+      if (rawContent.toLowerCase().includes("false")) {
+        console.log("[Reasoning Check] Fallback decision: false");
+        return false;
+      }
+      console.warn("[Reasoning Check] Fallback failed. Defaulting to 'false'.");
+      return false;
+    }
+  } catch (error) {
+    console.error(`Error in shouldUseReasoning: ${error.message}`);
+    return false;
+  }
+}
+
+/**
+ * Simulates reasoning using Plan -> Solve -> Reflect -> Summarize flow
+ * with enhanced prompts for better phase adherence. Yields intermediate steps.
+ *
+ * @param {string} system_prompt - Base system prompt.
+ * @param {string} global_memory - Persistent information.
+ * @param {object[]} plainMessages - Simplified conversation history.
+ * @param {string} prompt - The user's input prompt.
+ * @param {AbortController} controller - AbortController for cancellation.
+ * @yields {string} Chunks of the thinking process (Plan, Solve, Reflect) and final summary.
+ */
 export async function* streamChainOfThought(
   system_prompt,
   global_memory,
@@ -76,313 +179,298 @@ export async function* streamChainOfThought(
   prompt,
   controller
 ) {
-  console.log("Using chain-of-thought reasoning");
+  let fullThinkingProcess = "🤔 Let me think this through step by step\n\n";
+  console.log(fullThinkingProcess);
+  yield fullThinkingProcess;
 
-  let currentStep = "gather";
-  let aggregatedContent = "";
-  let stepContent = "";
-  let attempts = 0;
-  let lastReviewFeedback = "";
-  const MAX_ATTEMPTS = 3; // Prevents infinite loops
+  // --- Context Setup ---
+  let historyString = "No history provided.";
+  if (plainMessages && plainMessages.length > 0) {
+    historyString = plainMessages
+      .map((msg) => `${msg.role}: ${msg.content}`)
+      .join("\n");
+  }
+  const baseContextMessages = [
+    { role: "system", content: system_prompt },
+    {
+      role: "system",
+      content: `Relevant Memory/Scratchpad:\n${global_memory || "None provided."}`,
+    },
+    {
+      role: "system",
+      content: `Conversation History (for context):\n${historyString}`,
+    },
+    // User prompt is added specifically for the phase that needs it most directly
+  ];
 
-  const prompts = {
-    gather: `You are in the GATHERING phase. Perform comprehensive information extraction using this protocol:
+  let planText = "";
+  let solveText = "";
+  let reflectionText = "";
 
-1. SOURCE CATEGORIZATION
-[User Input] Direct quotes/numbers from prompt
-[Memory] Relevant context from history/knowledge
-[Implicit] Unstated but necessary assumptions
-[Conflict] Contradictions requiring resolution
+  try {
+    // --- PHASE 1: PLAN ---
+    const planHeader = `### PLAN ###\n`;
+    fullThinkingProcess += planHeader;
+    console.log(planHeader);
+    yield planHeader; // Yield header immediately
 
-2. CONTEXT TAGGING
-For each item, add:
-- (ESSENTIAL): Must be used in solution
-- (AMBIGUOUS): Requires clarification
-- (CONSTRAINT): Limits solution space
+    // Enhanced prompt for PLAN phase
+    const planSystemPrompt = `[ROLE] You are ONLY the PLANNER. Your sole task is to outline the steps needed to solve the user's request.
 
-3. PROBLEM DECLARATION
-Identify the EXACT SOLUTION ARTIFACT needed:
-[Calculation] → Required output type
-[Proof] → Logical validation needed
-[Explanation] → Causal relationships required
+[CONTEXT] Consider the user's request below, plus any relevant conversation history and memory provided earlier.
+User Request: ${prompt}
 
-4. FORMAT RULES
-- Use hyphen bullets ONLY
-- No markdown or special symbols
-- Max 8 bullet points
-- Include negative space indicators ("Missing: X")
+[TASK] Create a concise, step-by-step plan in plain text describing HOW you will solve the request. List the main stages or actions you will take.
 
-Example Output:
-- User Input: "Calculate velocity after 5s fall" (ESSENTIAL)
-- Memory: Gravity = 9.8m/s² (ESSENTIAL)
-- Implicit: Air resistance negligible (AMBIGUOUS)
-- Missing: Initial velocity assumption (CONFLICT)
-- Core Problem: Derive v(t) for free-fall (ESSENTIAL)`,
+[OUTPUT FORMAT] Output *only* the plan text itself.
 
-    analyze: `You are in the ANALYSIS phase. Conduct this structured breakdown:
+[IMPORTANT] Stick strictly to your role as PLANNER. Do *not* actually perform the steps or solve the problem now. Your output must be the plan only.`;
 
-1. PROBLEM DECONSTRUCTION
-A) Core Components: 
-- List MUST-SOLVE elements (from gathered info)
-- Identify IMPLICIT requirements
-B) Input/Output Mapping:
-Inputs: [All given data/conditions]
-→ Expected Outputs: [Required solution aspects]
+    // Include user prompt specifically for planning context
+    const planMessages = [
+      ...baseContextMessages,
+      { role: "user", content: prompt },
+      { role: "system", content: planSystemPrompt },
+    ];
+    const planData = await _callLlama4Scout(
+      planMessages,
+      false,
+      controller.signal,
+      "Plan Phase"
+    );
+    if (!planData || !planData.choices || !planData.choices[0].message)
+      throw new Error("Invalid PLAN response");
+    planText = planData.choices[0].message.content.trim();
 
-2. APPROACH GENERATION
-For MATH/LOGIC problems:
-- Method 1: [Primary technique] 
-  Pros: [...] 
-  Cons: [...]
-- Method 2: [Alternative] 
-  Pros: [...] 
-  Cons: [...]
-  
-For OPEN-ENDED problems:
-- Framework 1: [Structured approach]
-- Framework 2: [Creative angle]
+    const planOutput = `${planText}\n\n`; // Plan text + spacing
+    fullThinkingProcess += planOutput;
+    console.log(planText); // Log the plan text
+    yield planOutput; // Yield the plan text
 
-3. CONSTRAINT ENGINEERING
-A) Hard Constraints (Inviolable):
-1. [Exact quote from problem] → [Interpretation]
-2. [Implicit physical law/domain rule]
+    // --- PHASE 2: SOLVE ---
+    const solveHeader = `### SOLVE ###\n`;
+    fullThinkingProcess += solveHeader;
+    console.log(solveHeader);
+    yield solveHeader; // Yield header immediately
 
-B) Soft Constraints (Optimization goals):
-1. [Efficiency consideration]
-2. [Aesthetic/UX factor]
+    // Enhanced prompt for SOLVE phase
+    const solveSystemPrompt = `[ROLE] You are ONLY the SOLVER. Your sole task is to execute the plan created previously.
 
-4. CONFLICT RESOLUTION
-A) List contradictory requirements
-B) Prioritize using:
-- Explicit over implicit
-- Hard constraints over soft
-- Earlier context over later
+[CONTEXT] Execute the plan below to address the original user request.
+User Request: ${prompt}
+Your Plan:
+${planText}
 
-4. RISK ASSESSMENT 
-Potential Failure Points:
-- [Likely error] → Mitigation: [...]
-- [Ambiguity] → Clarification Needed: [...]
+[TASK] Follow the plan. Reason step-by-step, applying logical inference based on the given information and any relevant rules or constraints. Consider different possibilities and evaluate them against the known facts. Build towards a conclusion by ensuring each step is consistent with the initial conditions and prior deductions. If the information leads to an ambiguous or impossible outcome, identify and state that limitation.
 
-5. VALIDATION CHECKPOINTS
-- Pre-Solve: Confirm [critical assumption] via [method]
-- Mid-Solve: Verify [intermediate result] using [technique]
+[OUTPUT FORMAT] Output *ONLY* your reasoning process and conclusion.
 
-FORMAT REQUIREMENTS:
-- Use clear section headers (ALL CAPS)
-- For math: List variables as Var={description}
-- For logic: Map as IF [condition] → [implication]
-- No markdown - use indentation for subpoints
+[IMPORTANT] Stick strictly to your role as SOLVER executing the provided plan. Your output must be the reasoning process.
+`;
 
-Example Analysis:
-PROBLEM DECONSTRUCTION
-A) Core Components:
-- MUST-SOLVE: Calculate velocity AND verify safety
-- IMPLICIT: Use metric units
+    // Include user prompt and plan as context
+    const solveMessages = [
+      ...baseContextMessages, // Base context (system prompt, memory, history)
+      { role: "user", content: prompt }, // Original request
+      { role: "system", content: `[CONTEXT: Your Plan]\n${planText}` }, // Plan context
+      { role: "system", content: solveSystemPrompt }, // Solve instruction
+    ];
+    const solveData = await _callLlama4Scout(
+      solveMessages,
+      false,
+      controller.signal,
+      `Solve Phase`
+    );
+    if (!solveData || !solveData.choices || !solveData.choices[0].message)
+      throw new Error(`Invalid SOLVE response`);
+    solveText = solveData.choices[0].message.content.trim();
 
-APPROACH GENERATION
-Method 1: Kinematic equations
-Pros: Direct solution | Cons: Assumes constant acceleration
-Method 2: Energy conservation 
-Pros: Accounts for friction | Cons: Requires mass data
+    const solveOutput = `${solveText}\n\n`; // Solve text + spacing
+    fullThinkingProcess += solveOutput;
+    console.log(solveText); // Log the solve text
+    yield solveOutput; // Yield the solve text
 
-CONSTRAINT ENGINEERING
-Hard Constraints:
-1. "Max speed ≤ 25m/s" → Absolute limit
-2. Conservation of energy → Physical law
+    // --- PHASE 3: REFLECT ---
+    const reflectHeader = `### REFLECT ###\n`;
+    fullThinkingProcess += reflectHeader;
+    console.log(reflectHeader);
+    yield reflectHeader; // Yield header immediately
 
-RISK ASSESSMENT 
-- Risk: Missing air resistance → Mitigation: Add 10% buffer`,
+    // Enhanced prompt for REFLECT phase
+    const reflectSystemPrompt = `[ROLE] You are ONLY the REVIEWER. Your sole task is to critically evaluate the reasoning process and conclusion performed previously.
 
-    solve: `You are in the SOLUTION phase. Strictly follow these rules:
+[CONTEXT] Review the original user request, the plan, and the complete reasoning process provided below.
+User Request: ${prompt}
+Plan Created:
+${planText}
 
-            1. Structural Requirements
-            - Format: "STEP [N]: [Title in Caps]"
-            - Begin each step with "As analyzed: " + relevant analysis point
-            - For math: Show as (1) Formula (2) Substitution (3) Result
-            - For logic puzzles: Map all permutations using decision trees
+[TASK] Critically evaluate the reasoning process based on the plan and the original request.
+ - Was the reasoning process logical and sound?
+ - Does the conclusion follow validly from the initial information and steps taken?
+ - Is the conclusion consistent with all given facts and constraints?
+ - Were potential ambiguities or impossibilities identified correctly?
+ - **Based on your critique, determine if the reasoning attempt was successful or if a retry is needed.**
 
-            2. Logical Puzzle Protocol (When applicable)
-            A. List all possible initial assumptions
-            B. For each assumption:
-              - Explore implications through logical operators (AND/OR/NOT)
-              - Identify contradictions/confirmations
-              - Prune impossible branches with reasoning
-            C. Cross-validate surviving paths
+Provide your review as concise points. Conclude your response with a line indicating if a retry is needed, using the format: "RETRY_NEEDED: Yes" or "RETRY_NEEDED: No".
 
-            3. Validation Checkpoints
-            - After equations: [Check] Units consistency & magnitude sanity
-            - After logical steps: [Verify] No hidden assumptions introduced
-            - Final answer: [Confirm] Matches ALL problem constraints
+[OUTPUT FORMAT] Output *only* your critique, followed by the RETRY_NEEDED line.
 
-            4. Error Prevention
-            - When re-attempting: DIRECTLY ADDRESS previous failure points:
-            ${attempts > 0 ? "\n[Previous Errors] MUST FIX: " + lastReviewFeedback + "\n" : ""}
+[IMPORTANT] Stick strictly to your role as REVIEWER. Do *not* repeat the plan or reasoning. Do *not* re-solve the problem. Your output must be the critique and the retry decision.`;
 
-            5. Required Format (No Markdown)
-            - Mathematical notation: EQ#) Expression (e.g., EQ1) F = ma)
-            - Logical operators: AND/OR/NOT in caps
-            - Emphasis: Use *asterisks* for key terms
+    const reflectMessages = [
+      // Minimal context needed: just the instruction and the items to review
+      { role: "system", content: `[CONTEXT: User Request]\n${prompt}` },
+      { role: "system", content: `[CONTEXT: Plan Created]\n${planText}` },
+      {
+        role: "system",
+        content: `[CONTEXT: Solution Steps Executed]\n${solveText}`,
+      },
+      { role: "system", content: reflectSystemPrompt },
+    ];
+    const reflectData = await _callLlama4Scout(
+      reflectMessages,
+      false,
+      controller.signal,
+      "Reflect Phase"
+    );
+    if (!reflectData || !reflectData.choices || !reflectData.choices[0].message)
+      throw new Error("Invalid REFLECT response");
+    reflectionText = reflectData.choices[0].message.content.trim();
 
-            Example Structure:
-            STEP 1: INITIAL ASSUMPTIONS
-            As analyzed: <relevant analysis point>...
-            *Possible outcomes*:
-            1) Scenario A: <description>
-            2) Scenario B: <description>
+    const reflectOutput = `${reflectionText}\n\n`; // Reflect text + spacing
+    fullThinkingProcess += reflectOutput;
+    console.log(reflectionText); // Log reflection text
+    yield reflectOutput; // Yield the reflection text
 
-            STEP 2: CORE CALCULATION
-            EQ1) v = d/t
-            EQ2) v = 100m / 10s
-            EQ3) v = 10 m/s
-            [Check] Units: meters/sec ✓, Magnitude: Plausible for human movement ✓
+    // --- PHASE 4: SUMMARIZE ---
+    const summarySeparator = `### SUMMARIZE ###\n`;
+    fullThinkingProcess += summarySeparator;
+    console.log(summarySeparator);
+    yield summarySeparator; // Yield separator
 
-            STEP 3: LOGICAL ELIMINATION
-            Scenario A implies X, which CONTRADICTS constraint Y because...
-            Scenario B aligns with Z, therefore SURVIVES validation.`,
+    // Enhanced prompt for SUMMARIZE phase
+    const summarySystemPrompt = `[ROLE] You are ONLY the FINAL ANSWER provider.
 
-    review: `You are in the REVIEW phase. Apply this strict protocol:
+[CONTEXT] Based on the previous reasoning (Plan, Solve, Reflect), determine the final answer to the original user request.
+User Request: ${prompt}
+Plan: ${planText}
+Solution Steps: ${solveText}
+Review: ${reflectionText}
 
-1. VALIDATION SEQUENCE (MUST FOLLOW ORDER):
-A) Cross-check with ORIGINAL PROBLEM: Quote exact requirement vs solution
-B) ASSUMPTION AUDIT: List ALL assumptions made, flagging any without explicit basis
-C) CALCULATION VERIFICATION: Recompute 2 key calculations using alternative methods
-D) LOGICAL FLOW TEST: Create step dependency diagram mentally - identify missing links
-E) TERMINOLOGY MATCH: Compare solution's terms to problem's vocabulary list
+[TASK] Provide *only* the final answer to the user's original request. Present it clearly, directly, and concisely in plain text.
 
-2. DECISION MATRIX (ALL must be TRUE):
-✅ [1] 100% requirement coverage (no more/less)
-✅ [2] 0 unsupported assumptions
-✅ [3] ≤5% numerical variance in recalculations
-✅ [4] No >1 logical hop between steps
-✅ [5] ≥90% term alignment with problem statement
+[OUTPUT FORMAT] Output *only* the final answer itself.
 
-3. RESPONSE TEMPLATE:
-ACCEPTABLE/UNACCEPTABLE: [Initial verdict]
+[IMPORTANT] Stick strictly to your role as FINAL ANSWER provider. Do *not* include your planning, solving, or reflection steps. Your output must be only the answer.`;
 
-[IF UNACCEPTABLE]
-Failed Criteria (Cite Evidence):
-1. [Rubric #]: [Exact quote from solution] violates because...
-2. [Rubric #]: Missing connection between [Step X] and [Step Y]
-...
+    // Provide necessary context for final answer synthesis
+    const summaryMessages = [
+      { role: "system", content: `[CONTEXT: User Request]\n${prompt}` },
+      { role: "system", content: `[CONTEXT: Plan]\n${planText}` },
+      { role: "system", content: `[CONTEXT: Solution Steps]\n${solveText}` },
+      { role: "system", content: `[CONTEXT: Review]\n${reflectionText}` },
+      { role: "system", content: summarySystemPrompt },
+    ];
 
-Required Fixes:
-- [Actionable instruction] in [Specific Location]
-- [Alternative approach] for [Identified Issue]
+    // Use streaming for the final summary answer
+    const summaryResponse = await _callLlama4Scout(
+      summaryMessages,
+      true,
+      controller.signal,
+      "Summarize Phase"
+    );
 
-[IF ACCEPTABLE]
-Confirmation Checks:
-- Recalculation Method: [Describe alternative approach used]
-- Logical Bridge Test: [State how each transition was validated]
-- Terminology Variance: [List any allowed synonyms]
+    // Stream processing logic (parses JSON chunks for text - same as before)
+    const reader = summaryResponse.body.getReader();
+    const decoder = new TextDecoder();
+    let summaryAccumulator = "";
+    let leftover = "";
 
-4. STRICT FORMAT RULES:
-- Use "QUOTE: ..." for exact problematic phrases
-- Reference steps as [Step N]/[Equation N]
-- For numbers: "Expected:<X> vs Actual:<Y> (Δ=Z%)"
-- No markdown - use CAPS for emphasis
-
-Example UNACCEPTABLE response:
-UNACCEPTABLE: Fails 3 criteria
-1. [3] QUOTE: "Force = 5kg * 10m/s" → Expected: 5*9.81=49.05N vs 50N (Δ=1.9%)
-2. [4] Missing link between Step 2 (kinematics) and Step 3 (energy)
-...
-Required Fixes:
-- Recompute acceleration using F=ma in Step 2
-- Add conservation of energy explanation between Steps 2-3`,
-
-    summarize: `You are in the SUMMARY phase.
-    Based on all previous reasoning, create a summary that does the following:
-    - Clearly restates the original problem.
-    - Presents the solution in a concise manner. If the solution includes code or long explanations, include only the critical parts needed for understanding.
-    - Optionally, highlight key insights if they are necessary to understand the solution.
-    Keep the output as open as possible: use paragraphs, bullet points, or code blocks as needed.
-    Remember, the user will not see the intermediate steps, so make sure the summary is self-contained.`,
-  };
-
-  yield "\n\n🤔 Let me think this through step by step...\n\n";
-
-  while (currentStep && attempts < MAX_ATTEMPTS) {
-    const response = await fetch("https://ai.hackclub.com/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        messages: [
-          {
-            role: "system",
-            content: `STRUCTURED REASONING SYSTEM // ${currentStep.toUpperCase()} PHASE
-            ${attempts > 0 ? `ATTEMPT ${attempts + 1}` : ""}
-            
-            FULL CONTEXT:
-            User's Original Request: "${system_prompt}"
-            Conversation History: ${JSON.stringify(plainMessages)}
-            Global Memory: ${global_memory}
-            Aggregated Knowledge: 
-            ${aggregatedContent}
-            
-            PHASE TASK:
-            ${prompts[currentStep]}
-            
-            STRICT REQUIREMENTS:
-            1. Use ALL available context above
-            2. Never re-interpret original request`,
-          },
-          { role: "user", content: prompt },
-        ],
-        stream: true,
-      }),
-      signal: controller.value.signal,
-    });
-
-    yield `\n### ${currentStep.toUpperCase()} ###\n`;
-
-    stepContent = "";
-    for await (const chunk of readStream(response)) {
-      stepContent += chunk;
-      yield chunk;
-    }
-
-    // Store phase results with clear separation
-    aggregatedContent += `\n\n=== ${currentStep.toUpperCase()} ===\n${stepContent}\n`;
-
-    yield "\n---\n";
-
-    // Progress through phases with review cycle
-    switch (currentStep) {
-      case "gather":
-        currentStep = "analyze";
-        break;
-      case "analyze":
-        currentStep = "solve";
-        break;
-      case "solve":
-        currentStep = "review";
-        break;
-      case "review":
-        // Check if solution is acceptable
-        if (stepContent.trim().startsWith("ACCEPTABLE:")) {
-          currentStep = "summarize";
-        } else {
-          // Solution needs improvement
-          if (attempts < MAX_ATTEMPTS - 1) {
-            lastReviewFeedback = stepContent.trim();
-            yield "\n### RETRY SOLUTION ###\n";
-            currentStep = "solve";
-            attempts++;
-          } else {
-            // Max attempts reached, move to summary anyway
-            yield "\n### MAX ATTEMPTS REACHED ###\n";
-            currentStep = "summarize";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        if (leftover.trim()) {
+          try {
+            const jsonChunk = JSON.parse(leftover.trim());
+            const content = jsonChunk?.choices?.[0]?.delta?.content;
+            if (content) {
+              summaryAccumulator += content;
+              fullThinkingProcess += content;
+              console.log(content);
+              yield content;
+            }
+          } catch (e) {
+            console.warn(
+              "[Summarize Phase] Error parsing leftover stream data:",
+              leftover,
+              e
+            );
           }
         }
         break;
-      case "summarize":
-        currentStep = null;
-        break;
+      }
+      const textChunk = leftover + decoder.decode(value, { stream: true });
+      let potentialJsons = textChunk.split(/(?<=\})\s*(?=\{)/);
+      leftover = "";
+      for (let i = 0; i < potentialJsons.length; i++) {
+        let potentialJsonString = potentialJsons[i].trim();
+        if (!potentialJsonString) continue;
+        try {
+          const jsonChunk = JSON.parse(potentialJsonString);
+          const content = jsonChunk?.choices?.[0]?.delta?.content;
+          if (content) {
+            summaryAccumulator += content;
+            fullThinkingProcess += content;
+            console.log(content);
+            yield content;
+          }
+          if (i === potentialJsons.length - 1) {
+            leftover = "";
+          }
+        } catch (e) {
+          if (i === potentialJsons.length - 1) {
+            leftover = potentialJsonString;
+          } else {
+            console.warn(
+              "[Summarize Phase] Failed to parse intermediate JSON chunk:",
+              potentialJsonString,
+              e
+            );
+          }
+        }
+      }
     }
+    console.log(`[Summarize Phase] End of stream.`);
+  } catch (error) {
+    if (error.name !== "AbortError") {
+      console.error(`Error during streamChainOfThought: ${error.message}`);
+      const errorMsg = `\n\n--- ERROR ---\nAn error occurred during processing: ${error.message}\n`;
+      fullThinkingProcess += errorMsg;
+      console.log(errorMsg);
+      yield errorMsg; // Yield error after the separator it failed on
+    } else {
+      const abortMsg = "\n\n--- ABORTED ---\nProcessing was cancelled.\n";
+      fullThinkingProcess += abortMsg;
+      console.log(abortMsg);
+      yield abortMsg; // Yield abort message
+    }
+  } finally {
+    console.log("\n--- Full Raw Thinking Process Log ---");
+    console.log(fullThinkingProcess);
+    console.log("--- End of Raw Thinking Process ---");
   }
 }
 
-// Regular message stream (using a single API call)
+/**
+ * Handles regular, non-reasoning messages.
+ * (Remains the same, yielding text chunks)
+ * @param {string} system_prompt - Base system prompt.
+ * @param {string} global_memory - Persistent information.
+ * @param {object[]} plainMessages - Simplified conversation history.
+ * @param {string} prompt - The user's input prompt.
+ * @param {AbortController} controller - AbortController for cancellation.
+ * @returns {AsyncGenerator<string, void, unknown>} - Async generator yielding text chunks.
+ */
 export async function regularMsg(
   system_prompt,
   global_memory,
@@ -390,20 +478,85 @@ export async function regularMsg(
   prompt,
   controller
 ) {
-  const response = await fetch("https://ai.hackclub.com/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      messages: [
-        {
-          role: "system",
-          content: `${system_prompt} Memory: ${global_memory}. Conversation: ${JSON.stringify(plainMessages)}`,
-        },
-        { role: "user", content: prompt },
-      ],
-      stream: true,
-    }),
-    signal: controller.value.signal,
-  });
-  return response;
+  let historyString = "No history provided.";
+  if (plainMessages && plainMessages.length > 0) {
+    historyString = plainMessages
+      .map((msg) => `${msg.role}: ${msg.content}`)
+      .join("\n");
+  }
+  const messages = [
+    { role: "system", content: system_prompt },
+    {
+      role: "system",
+      content: `Relevant Memory/Scratchpad:\n${global_memory || "None provided."}`,
+    },
+    {
+      role: "system",
+      content: `Conversation History (for context):\n${historyString}`,
+    },
+    { role: "user", content: prompt },
+  ];
+
+  try {
+    const response = await _callLlama4Scout(
+      messages,
+      true,
+      controller.signal,
+      "Regular Message"
+    );
+    async function* processStream() {
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let leftover = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          if (leftover.trim()) {
+            try {
+              const jsonChunk = JSON.parse(leftover.trim());
+              const content = jsonChunk?.choices?.[0]?.delta?.content;
+              if (content) yield content;
+            } catch (e) {
+              console.warn(
+                "[Regular Message] Error parsing leftover stream data:",
+                leftover,
+                e
+              );
+            }
+          }
+          break;
+        }
+        const textChunk = leftover + decoder.decode(value, { stream: true });
+        let potentialJsons = textChunk.split(/(?<=\})\s*(?=\{)/);
+        leftover = "";
+        for (let i = 0; i < potentialJsons.length; i++) {
+          let potentialJsonString = potentialJsons[i].trim();
+          if (!potentialJsonString) continue;
+          try {
+            const jsonChunk = JSON.parse(potentialJsonString);
+            const content = jsonChunk?.choices?.[0]?.delta?.content;
+            if (content) yield content;
+            if (i === potentialJsons.length - 1) {
+              leftover = "";
+            }
+          } catch (e) {
+            if (i === potentialJsons.length - 1) {
+              leftover = potentialJsonString;
+            } else {
+              console.warn(
+                "[Regular Message] Failed to parse intermediate JSON chunk:",
+                potentialJsonString,
+                e
+              );
+            }
+          }
+        }
+      }
+      console.log(`[Regular Message] End of stream.`);
+    }
+    return processStream();
+  } catch (error) {
+    console.error(`Error in regularMsg: ${error.message}`);
+    throw error;
+  }
 }

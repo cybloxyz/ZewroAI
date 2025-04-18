@@ -1,21 +1,26 @@
 <script setup>
-import { ref, onBeforeUnmount } from 'vue';
+import { ref, onBeforeUnmount, onMounted } from 'vue';
 import localforage from 'localforage';
 import { emitter } from '@/emitter';
-import { Motion } from 'motion-v'
 
-import SettingsPanel from './SettingsPanel.vue';
+const emit = defineEmits(['changeConversation', 'deleteConversation', 'newConversation', 'reloadSettings', 'toggleDark', 'closeSidebar']);
+const props = defineProps(['currConvo', 'messages', 'isDark', 'isOpen']);
 
-const emit = defineEmits(['changeConversation', 'deleteConversation', 'newConversation', 'reloadSettings', 'toggleDark']);
-const props = defineProps(['currConvo', 'messages', 'isDark']);
-
-const hover = ref(false)
 const metadata = ref([]);
-const isOpen = ref(true);
+const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1200);
 
-if (window.innerWidth < 768) {
-  isOpen.value = false;
+function handleResize() {
+  windowWidth.value = window.innerWidth;
 }
+
+onMounted(() => {
+  window.addEventListener('resize', handleResize);
+  handleResize();
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', handleResize);
+});
 
 async function updateConversations() {
   const stored = await localforage.getItem("conversations_metadata");
@@ -24,248 +29,266 @@ async function updateConversations() {
 
 updateConversations() // Initial load
 
-function toggle() {
-  isOpen.value = !isOpen.value;
-}
-
-// Subscribe to emitter event so that when a new conversation is created, we update
 emitter.on('updateConversations', updateConversations);
 
 onBeforeUnmount(() => {
   emitter.off('updateConversations', updateConversations);
 });
+
+function closeSidebar() {
+  emit('closeSidebar');
+}
 </script>
 
 <template>
-  <button @click="toggle" class="menu-toggle">
-    <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" stroke="currentColor" width="32px" height="32px"
-      viewBox="0 0 32 32">
-      <path
-        d="M9 10a1 1 0 0 1 1-1h12a1 1 0 0 1 0 2H10a1 1 0 0 1-1-1Zm0 5a1 1 0 0 1 1-1h12a1 1 0 0 1 0 2H10a1 1 0 0 1-1-1Zm0 5a1 1 0 0 1 1-1h12a1 1 0 0 1 0 2H10a1 1 0 0 1-1-1Z" />
-    </svg>
-  </button>
-  <div class="sidebar" :class="{ active: isOpen }">
-    <div class="sidebar-content-wrapper"> <!-- This is so that the items inside the sidebar appear stationary.-->
-      <button id="new-chat-button" @click="$emit('newConversation')"><svg xmlns="http://www.w3.org/2000/svg"
-          width="48px" height="48px" viewBox="0 0 32 32" aria-label="Create new chat">
-          <path
-            d="M26.957 4.886a1 1 0 0 0-1.414 0L14.647 15.782a6.8 6.8 0 0 0-1.407 2.058l-.003.006c-.307.7.403 1.413 1.104 1.11a6.7 6.7 0 0 0 2.083-1.416L27.31 6.653a1 1 0 0 0 0-1.414zm-8.039 3.245c.311.032.622-.071.843-.292l.737-.737c.274-.274.145-.736-.236-.804C19.078 6.088 17.67 6 16 6 8 6 6 8 6 16s2 10 10 10 10-2 10-10c0-1.507-.071-2.801-.24-3.909-.059-.39-.53-.529-.808-.251l-.757.757a1.03 1.03 0 0 0-.293.821c.064.734.098 1.587.098 2.582 0 4.015-.55 5.722-1.414 6.586S20.014 24 16 24s-5.722-.55-6.586-1.414S8 20.015 8 16c0-4.014.55-5.721 1.414-6.585S11.986 8 16 8c1.151 0 2.112.046 2.918.131"
-            fill="currentColor" />
-        </svg></button>
-      <div class=" main-content">
-        <h1>Recent</h1>
-        <div class="conversation-list" v-if="metadata.length">
-          <div class="conversation-wrapper" v-for="data in metadata" :key="data.id">
-            <button class="conversation-button" @click="$emit('changeConversation', data.id)"
-              :class="{ active: data.id == currConvo }">
-              {{ data.title }}
-            </button>
-            <button class="delete-button" @click.stop="$emit('deleteConversation', data.id)" aria-label="Delete chat">
-              <img src="../assets/delete.svg" width="16px" alt="delete conversation">
-            </button>
-
-          </div>
+  <div :class="['sidebar', { active: props.isOpen }]">
+    <div class="sidebar-header">
+      <span class="sidebar-title">Chats</span>
+      <button class="dark-toggle" @click="$emit('toggleDark')" aria-label="Toggle light/dark mode">
+        <img v-if="isDark" src="@/assets/dark.svg" width="28" height="28" alt="Dark mode" />
+        <img v-else src="@/assets/light.svg" width="28" height="28" alt="Light mode" />
+      </button>
+    </div>
+    <button id="new-chat-button" class="new-chat-btn" @click="$emit('newConversation')">
+      <img src="@/assets/new-chat.svg" width="20" height="20" alt="New Chat" />
+      <span>New Chat</span>
+    </button>
+    <div class="main-content">
+      <div class="conversation-list" v-if="metadata.length">
+        <div class="conversation-wrapper" v-for="data in metadata" :key="data.id">
+          <button class="conversation-button" @click="$emit('changeConversation', data.id)"
+            :class="{ active: data.id == currConvo }">
+            {{ data.title }}
+          </button>
+          <button class="delete-button no-hover" @click.stop="$emit('deleteConversation', data.id)"
+            aria-label="Delete chat">
+            <img src="@/assets/delete.svg" width="16" height="16" alt="delete conversation">
+          </button>
         </div>
-        <SettingsPanel @reload-settings="$emit('reload-settings')" />
-        <button class="dark-toggle" @click="$emit('toggleDark')" aria-label="Toggle light/dark mode">
-          <svg v-if="isDark" width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor"
-            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
-            <path d="M28 17.05 A12 12 0 1 1 14.95 4 A9.33 9.33 0 0 0 28 17.05 z"></path>
-          </svg>
-
-          <svg v-else width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2"
-            stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="16" cy="16" r="6.67"></circle>
-            <line x1="16" y1="1.33" x2="16" y2="4"></line>
-            <line x1="16" y1="28" x2="16" y2="30.67"></line>
-            <line x1="5.63" y1="5.63" x2="7.52" y2="7.52"></line>
-            <line x1="24.48" y1="24.48" x2="26.37" y2="26.37"></line>
-            <line x1="1.33" y1="16" x2="4" y2="16"></line>
-            <line x1="28" y1="16" x2="30.67" y2="16"></line>
-            <line x1="5.63" y1="26.37" x2="7.52" y2="24.48"></line>
-            <line x1="24.48" y1="7.52" x2="26.37" y2="5.63"></line>
-          </svg>
-
-        </button>
       </div>
     </div>
+    <div v-if="props.isOpen && windowWidth < 900" class="sidebar-overlay" @click="closeSidebar"></div>
   </div>
 </template>
 
 <style scoped>
 @import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Karla:ital,wght@0,200..800;1,200..800&family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&family=Noticia+Text:ital,wght@0,400;0,700;1,400;1,700&family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap');
 
-.menu-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  position: fixed;
-  left: 12px;
-  top: 18px;
-  width: 48px;
-  height: 48px;
-  z-index: 999;
-}
-
-.hc-flag {
-  position: absolute;
-  bottom: 28px;
-  left: 18px;
-}
-
-.hc-flag:hover {
-  background-color: transparent;
-}
-
-.menu-toggle svg {
-  position: relative;
-  width: 150%;
-  height: 100%
-}
-
 .sidebar {
-  top: 0;
+  position: fixed;
   left: 0;
-  bottom: 0;
-  width: 0;
+  top: 0;
   height: 100dvh;
-  background-color: #ededed;
-  position: relative;
-  overflow: hidden;
-  z-index: 998;
-  box-shadow: 0 0 24px rgba(0, 0, 0, 0.2);
-  transition: width 0.4s ease;
-  text-wrap-mode: nowrap;
+  width: 280px;
+  max-width: 90vw;
+  z-index: 1200;
+  background: #f8f9fa;
+  color: #343a40;
+  border-right: 1px solid #dee2e6;
+  transform: translateX(-100%);
+  transition: transform 0.3s ease;
 }
 
 .sidebar.active {
-  width: 300px;
+  transform: translateX(0);
 }
 
-.sidebar-content-wrapper {
-  position: absolute;
-  left: 0;
-  width: 300px;
-  height: 100%;
+.dark .sidebar {
+  background: #1a1a1c;
+  color: #e0e0e0;
+  border-right: 1px solid #2c2c2e;
 }
 
-.sidebar button {
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  height: 60px;
+  background: #fff;
+  color: #343a40;
+  border-bottom: 1px solid #dee2e6;
+  padding: 0;
+  position: relative;
+}
+
+.dark .sidebar-header {
+  background: #1f1f23;
+  color: #e0e0e0;
+  border-bottom: 1px solid #2c2c2e;
+}
+
+.sidebar-title {
+  font-family: 'Inter', sans-serif;
+  font-size: 1.1em;
+  font-weight: 600;
+  color: inherit;
+  margin: 0 auto 0 0;
+  padding-left: 60px;
+}
+
+.dark-toggle {
+  background: none;
+  border: none;
+  border-radius: 8px;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.18s;
+  color: #6c757d;
+  margin-right: 16px;
+}
+
+.dark-toggle img {
+  width: 28px;
+  height: 28px;
   display: block;
+  filter: none;
+}
+
+.dark .dark-toggle img {
+  filter: invert(1) brightness(1.2);
+}
+
+.dark-toggle:hover {
+  background-color: #8492a633;
+}
+
+.dark .dark-toggle:hover {
+  background: #343a40;
 }
 
 #new-chat-button {
-  padding: 0;
-  position: absolute;
-  right: 21px;
-  top: 18px;
-  width: 48px;
-  height: 48px;
+  margin: 16px 16px 12px 16px;
+  width: calc(100% - 32px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #ec3750;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 0;
+  font-size: 1em;
+  font-weight: 600;
+  transition: background 0.18s, box-shadow 0.18s, transform 0.15s;
+  box-shadow: 0 2px 8px #ec375022;
+}
+
+#new-chat-button img {
+  width: 20px;
+  height: 20px;
+  filter: none;
+}
+
+#new-chat-button:hover {
+  background: #cb2c41;
+  box-shadow: 0 4px 16px #ec375055;
+  transform: scale(1.03);
 }
 
 .main-content {
-  margin-top: 128px;
-  padding: 0 3px 0 24.5px;
-  overflow: hidden;
-}
-
-.main-content h1 {
-  font-family: "Inter", sans-serif;
-  font-weight: bold;
-  margin-left: -1.5px;
+  flex: 1 1 0;
+  overflow-y: auto;
+  padding: 0 16px;
+  margin-bottom: 12px;
 }
 
 .conversation-list {
   display: flex;
   flex-direction: column-reverse;
-  max-height: calc(100dvh - 320px);
-  overflow-y: auto;
-}
-
-.conversation-button {
-  width: 100%;
-  height: 36px;
-  border-radius: 4px;
-  padding: 0 8px;
-  text-align: left;
-  font-size: 16px;
-  margin-right: 3px;
-}
-
-.conversation-button.active {
-  background-color: #484e5633;
-}
-
-.sidebar-footer {
-  position: absolute;
-  bottom: 0;
-  width: 100%;
-  text-align: center;
-  padding: 12px 8px;
-}
-
-.sidebar-footer .hc-flag {
-  padding: 8px;
-  margin: 28px auto 4px;
-  display: inline-block;
-  width: auto;
-}
-
-.sidebar-footer .hc-flag:hover {
-  background-color: transparent;
+  gap: 4px;
 }
 
 .conversation-wrapper {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 6px;
 }
 
-.dark-toggle {
-  position: absolute;
-  padding: 8px;
-  width: 48px;
-  height: 48px;
-  bottom: 70px;
-  right: 18px;
-  z-index: 2;
-}
-
-/* Make delete button small and unobtrusive */
-.delete-button {
-  background: transparent;
+.conversation-button {
+  flex-grow: 1;
+  text-align: left;
+  background: none;
+  color: #495057;
   border: none;
-  padding: 0 4px;
-  cursor: pointer;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 0.95em;
+  font-family: inherit;
+  font-weight: 500;
+  transition: background 0.18s, color 0.18s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.delete-button img {
-  display: block;
+.conversation-button:hover {
+  background: #338eda22;
+  color: #338eda;
 }
 
-/* Dark mode styles */
-
-.dark .sidebar {
-  background-color: #242529;
+.conversation-button.active {
+  background: #ec375011;
+  color: #ec3750;
+  font-weight: 700;
 }
 
 .dark .conversation-button {
-  color: #E0E0E0;
+  color: #adb5bd;
 }
 
 .dark .conversation-button.active {
-  background-color: #d4e0f333;
+  background: #ec375033;
+  color: #ec3750;
 }
 
-/* Different display size styles */
+.delete-button.no-hover {
+  background: none;
+  border: none;
+  padding: 4px;
+  opacity: 0.6;
+}
 
-@media (max-width: 768px) {
+.delete-button.no-hover:hover {
+  opacity: 1;
+}
+
+.sidebar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.25);
+  z-index: 1999;
+}
+
+@media (min-width: 900px) {
   .sidebar {
     position: fixed;
+    /* Remove transform: none; so the sidebar can always be toggled */
+  }
+}
+
+@media (max-width: 900px) {
+  .sidebar {
+    width: 80vw;
+    max-width: 340px;
+    box-shadow: 4px 0 24px #0002;
   }
 
-  .sidebar.active {
-    width: 300px;
+  .dark .sidebar {
+    box-shadow: 4px 0 24px #0004;
+  }
+}
+
+@media (max-width: 600px) {
+  .sidebar-title {
+    padding-left: 48px;
   }
 }
 </style>
