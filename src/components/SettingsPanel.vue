@@ -238,11 +238,6 @@ function closeSettings() {
 </template>
 
 <style scoped>
-/*
-  CSS styles for the Settings Panel component.
-  These styles are scoped, meaning they only apply to this component.
-*/
-
 /* --- Settings Button --- */
 .settings-header-btn {
   position: fixed;
@@ -335,7 +330,7 @@ function closeSettings() {
   height: 100vh;
   background: rgba(0, 0, 0, 0.25);
   /* Semi-transparent black background */
-  z-index: 1201;
+  z-index: 1003;
   /* Below the modal but above other content */
 }
 
@@ -344,7 +339,7 @@ function closeSettings() {
   position: fixed;
   top: 50%;
   left: 50%;
-  z-index: 1202;
+  z-index: 1004;
   transform-origin: center;
   transform: translate(-50%, -50%);
   display: flex;

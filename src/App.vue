@@ -348,6 +348,8 @@ button:hover {
   height: 100dvh;
   max-width: 100vw;
   box-sizing: border-box;
+  overflow: hidden;
+  /* Prevent any overflow */
 }
 
 /* 
@@ -364,7 +366,7 @@ button:hover {
   transition: margin-left 0.3s cubic-bezier(.4, 1, .6, 1);
   margin-left: 0;
   box-sizing: border-box;
-  overflow-x: hidden;
+  overflow: hidden;
 }
 
 /* Sidebar open shifts main content right by sidebar width (280px) */
@@ -390,15 +392,23 @@ button:hover {
   flex: 1 1 0;
   min-width: 0;
   height: 100%;
-  /* Fill parent height for proper flex behavior */
+  overflow: hidden;
 }
 
 /* On mobile, fill width and reduce padding */
 @media (max-width: 900px) {
   .main-content-inner {
     max-width: 100vw;
-    margin: 0 auto;
-    padding: 0 4px;
+    margin: 0;
+    padding: 0;
+  }
+
+  .app-container {
+    padding: 0;
+  }
+
+  #app {
+    padding: 0;
   }
 }
 
@@ -460,7 +470,8 @@ header {
   }
 
   .app-container {
-    padding: var(--spacing-12) 16px var(--spacing-8);
+    padding: 0;
+    /* Remove padding that was causing scrollbar */
   }
 
   header {
@@ -472,7 +483,7 @@ header {
   position: fixed;
   top: 8px;
   left: 4px;
-  z-index: 2001;
+  z-index: 1002;
   background: transparent;
   border: none;
   box-shadow: none;
@@ -496,19 +507,5 @@ header {
 
 .global-menu-toggle.dark img {
   filter: invert(1) brightness(1.2);
-}
-
-
-
-@media (max-width: 600px) {
-  .global-menu-toggle {
-    width: 48px;
-    height: 48px;
-  }
-
-  .global-menu-toggle img {
-    width: 20px;
-    height: 20px;
-  }
 }
 </style>

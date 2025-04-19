@@ -197,6 +197,15 @@ onMounted(() => {
   overflow-x: hidden;
   min-height: 0;
   margin: 8px 0;
+  scrollbar-width: thin;
+  /* For Firefox */
+  -ms-overflow-style: none;
+  /* For IE and Edge */
+}
+
+/* Hide scrollbar for Chrome/Safari/Opera */
+.chat-wrapper::-webkit-scrollbar {
+  display: none;
 }
 
 .chat-container {
@@ -635,25 +644,59 @@ code {
 
 @media (max-width: 768px) {
   .chat-container {
-    gap: var(--spacing-8);
-    padding: 0 var(--spacing-4);
+    gap: 16px;
+    padding: 12px 8px;
+  }
+
+  .bubble {
+    max-width: 85%;
+    padding: 12px;
+    font-size: 0.95rem;
+    line-height: 1.4;
+  }
+
+  .message {
+    margin-bottom: 4px;
   }
 
   .reasoning-details {
     width: 100%;
     font-size: 0.85em;
+    margin-bottom: 6px;
   }
 
-  .chat-wrapper {
-    padding: var(--spacing-4);
-    margin: var(--spacing-8) var(--spacing-4);
-    border-radius: var(--border-radius);
+  .reasoning-details summary {
+    width: auto;
+    padding: 4px 8px;
+    font-size: 0.8em;
   }
 
-  .bubble {
-    max-width: 88%;
-    padding: var(--spacing-12) var(--spacing-12);
-    font-size: smaller;
+  /* Adjust heading sizes for mobile */
+  .markdown-content {
+    h1 {
+      font-size: 1.4em;
+    }
+
+    h2 {
+      font-size: 1.3em;
+    }
+
+    h3 {
+      font-size: 1.2em;
+    }
+
+    h4 {
+      font-size: 1.1em;
+    }
+
+    pre {
+      padding: 0.75rem !important;
+      font-size: 0.85em;
+    }
+
+    code:not(.hljs) {
+      font-size: 0.85em;
+    }
   }
 }
 

@@ -41,33 +41,35 @@ function closeSidebar() {
 </script>
 
 <template>
-  <div :class="['sidebar', { active: props.isOpen }]">
-    <div class="sidebar-header">
-      <span class="sidebar-title">Chats</span>
-      <button class="dark-toggle" @click="$emit('toggleDark')" aria-label="Toggle light/dark mode">
-        <img v-if="isDark" src="@/assets/dark.svg" width="28" height="28" alt="Dark mode" />
-        <img v-else src="@/assets/light.svg" width="28" height="28" alt="Light mode" />
+  <div>
+    <div v-if="props.isOpen && windowWidth < 900" class="sidebar-overlay" @click="closeSidebar"></div>
+    <div :class="['sidebar', { active: props.isOpen }]">
+      <div class="sidebar-header">
+        <span class="sidebar-title">Chats</span>
+        <button class="dark-toggle" @click="$emit('toggleDark')" aria-label="Toggle light/dark mode">
+          <img v-if="isDark" src="@/assets/dark.svg" width="28" height="28" alt="Dark mode" />
+          <img v-else src="@/assets/light.svg" width="28" height="28" alt="Light mode" />
+        </button>
+      </div>
+      <button id="new-chat-button" class="new-chat-btn" @click="$emit('newConversation')">
+        <img src="@/assets/new-chat.svg" width="20" height="20" alt="New Chat" />
+        <span>New Chat</span>
       </button>
-    </div>
-    <button id="new-chat-button" class="new-chat-btn" @click="$emit('newConversation')">
-      <img src="@/assets/new-chat.svg" width="20" height="20" alt="New Chat" />
-      <span>New Chat</span>
-    </button>
-    <div class="main-content">
-      <div class="conversation-list" v-if="metadata.length">
-        <div class="conversation-wrapper" v-for="data in metadata" :key="data.id">
-          <button class="conversation-button" @click="$emit('changeConversation', data.id)"
-            :class="{ active: data.id == currConvo }">
-            {{ data.title }}
-          </button>
-          <button class="delete-button no-hover" @click.stop="$emit('deleteConversation', data.id)"
-            aria-label="Delete chat">
-            <img src="@/assets/delete.svg" width="16" height="16" alt="delete conversation">
-          </button>
+      <div class="main-content">
+        <div class="conversation-list" v-if="metadata.length">
+          <div class="conversation-wrapper" v-for="data in metadata" :key="data.id">
+            <button class="conversation-button" @click="$emit('changeConversation', data.id)"
+              :class="{ active: data.id == currConvo }">
+              {{ data.title }}
+            </button>
+            <button class="delete-button no-hover" @click.stop="$emit('deleteConversation', data.id)"
+              aria-label="Delete chat">
+              <img src="@/assets/delete.svg" width="16" height="16" alt="delete conversation">
+            </button>
+          </div>
         </div>
       </div>
     </div>
-    <div v-if="props.isOpen && windowWidth < 900" class="sidebar-overlay" @click="closeSidebar"></div>
   </div>
 </template>
 
@@ -81,7 +83,7 @@ function closeSidebar() {
   height: 100dvh;
   width: 280px;
   max-width: 90vw;
-  z-index: 1200;
+  z-index: 1001;
   background: #f8f9fa;
   color: #343a40;
   border-right: 1px solid #dee2e6;
@@ -259,18 +261,22 @@ function closeSidebar() {
 
 .sidebar-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0, 0, 0, 0.25);
-  z-index: 1999;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.4);
+  opacity: 1;
+  z-index: 1001;
+  transition: opacity 0.2s ease-out;
+  will-change: opacity;
+  pointer-events: auto;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 @media (min-width: 900px) {
   .sidebar {
     position: fixed;
-    /* Remove transform: none; so the sidebar can always be toggled */
   }
 }
 

@@ -1,0 +1,55 @@
+Date : 2025-04-19 12:55:14
+Directory : c:\Users\del\AppData\Roaming\Projects\aegis-ai\src
+Total : 24 files,  3413 codes, 126 comments, 513 blanks, all 4052 lines
+
+Languages
++------------+------------+------------+------------+------------+------------+
+| language   | files      | code       | comment    | blank      | total      |
++------------+------------+------------+------------+------------+------------+
+| vue        |          5 |      2,379 |         11 |        360 |      2,750 |
+| JavaScript |          6 |        849 |        113 |        129 |      1,091 |
+| XML        |         11 |         93 |          0 |          5 |         98 |
+| CSS        |          2 |         92 |          2 |         19 |        113 |
++------------+------------+------------+------------+------------+------------+
+
+Directories
++--------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                                 | files      | code       | comment    | blank      | total      |
++--------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                    |         24 |      3,413 |        126 |        513 |      4,052 |
+| . (Files)                                                                            |          3 |        452 |          5 |         69 |        526 |
+| assets                                                                               |         13 |        185 |          2 |         24 |        211 |
+| components                                                                           |          4 |      1,933 |          6 |        296 |      2,235 |
+| composables                                                                          |          4 |        843 |        113 |        124 |      1,080 |
++--------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++--------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| filename                                                                             | language   | code       | comment    | blank      | total      |
++--------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| c:\Users\del\AppData\Roaming\Projects\aegis-ai\src\App.vue                           | vue        |        446 |          5 |         64 |        515 |
+| c:\Users\del\AppData\Roaming\Projects\aegis-ai\src\assets\base.css                   | CSS        |         71 |          2 |         14 |         87 |
+| c:\Users\del\AppData\Roaming\Projects\aegis-ai\src\assets\close.svg                  | XML        |          1 |          0 |          0 |          1 |
+| c:\Users\del\AppData\Roaming\Projects\aegis-ai\src\assets\dark.svg                   | XML        |          3 |          0 |          1 |          4 |
+| c:\Users\del\AppData\Roaming\Projects\aegis-ai\src\assets\delete.svg                 | XML        |          1 |          0 |          0 |          1 |
+| c:\Users\del\AppData\Roaming\Projects\aegis-ai\src\assets\flag-standalone.svg        | XML        |          1 |          0 |          0 |          1 |
+| c:\Users\del\AppData\Roaming\Projects\aegis-ai\src\assets\gear.svg                   | XML        |          3 |          0 |          1 |          4 |
+| c:\Users\del\AppData\Roaming\Projects\aegis-ai\src\assets\light.svg                  | XML        |         11 |          0 |          1 |         12 |
+| c:\Users\del\AppData\Roaming\Projects\aegis-ai\src\assets\logo.svg                   | XML        |         66 |          0 |          1 |         67 |
+| c:\Users\del\AppData\Roaming\Projects\aegis-ai\src\assets\main.css                   | CSS        |         21 |          0 |          5 |         26 |
+| c:\Users\del\AppData\Roaming\Projects\aegis-ai\src\assets\menu.svg                   | XML        |          1 |          0 |          0 |          1 |
+| c:\Users\del\AppData\Roaming\Projects\aegis-ai\src\assets\new-chat.svg               | XML        |          1 |          0 |          0 |          1 |
+| c:\Users\del\AppData\Roaming\Projects\aegis-ai\src\assets\send.svg                   | XML        |          1 |          0 |          0 |          1 |
+| c:\Users\del\AppData\Roaming\Projects\aegis-ai\src\assets\settings.svg               | XML        |          4 |          0 |          1 |          5 |
+| c:\Users\del\AppData\Roaming\Projects\aegis-ai\src\components\AppSidebar.vue         | vue        |        253 |          0 |         42 |        295 |
+| c:\Users\del\AppData\Roaming\Projects\aegis-ai\src\components\ChatPanel.vue          | vue        |        565 |          1 |        109 |        675 |
+| c:\Users\del\AppData\Roaming\Projects\aegis-ai\src\components\MessageForm.vue        | vue        |        228 |          5 |         27 |        260 |
+| c:\Users\del\AppData\Roaming\Projects\aegis-ai\src\components\SettingsPanel.vue      | vue        |        887 |          0 |        118 |      1,005 |
+| c:\Users\del\AppData\Roaming\Projects\aegis-ai\src\composables\memory.js             | JavaScript |        226 |         33 |         30 |        289 |
+| c:\Users\del\AppData\Roaming\Projects\aegis-ai\src\composables\message.js            | JavaScript |        445 |         63 |         55 |        563 |
+| c:\Users\del\AppData\Roaming\Projects\aegis-ai\src\composables\settings.js           | JavaScript |         97 |          6 |         17 |        120 |
+| c:\Users\del\AppData\Roaming\Projects\aegis-ai\src\composables\storeConversations.js | JavaScript |         75 |         11 |         22 |        108 |
+| c:\Users\del\AppData\Roaming\Projects\aegis-ai\src\emitter.js                        | JavaScript |          2 |          0 |          2 |          4 |
+| c:\Users\del\AppData\Roaming\Projects\aegis-ai\src\main.js                           | JavaScript |          4 |          0 |          3 |          7 |
+| Total                                                                                |            |      3,413 |        126 |        513 |      4,052 |
++--------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+

@@ -84,9 +84,12 @@ function handleEnterKey() {
   flex-direction: column;
   align-items: stretch;
   max-width: 800px;
-  width: 800px;
-  margin: 0px auto;
+  width: 100%;
+  margin: 0 auto;
   padding: 0 16px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  /* Prevent shrinking */
 }
 
 .input-container {
@@ -164,6 +167,59 @@ function handleEnterKey() {
 .chat-textarea:focus {
   outline: none;
   min-height: 96px;
+}
+
+@media (max-width: 768px) {
+  .input-section {
+    padding: 0 4px;
+    margin-bottom: 4px;
+    /* Add small margin at bottom */
+  }
+
+  .reasoning-btn {
+    padding: 8px 16px;
+    font-size: 0.9rem;
+  }
+
+  .reasoning-btn .reasoning-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  .input-area-wrapper {
+    padding: 8px 12px;
+    margin: 0 4px;
+    /* Add small margin to prevent touching edges */
+  }
+
+  .chat-textarea {
+    height: 44px;
+    min-height: 44px;
+    padding: 8px;
+    font-size: 0.95rem;
+    line-height: 1.3;
+  }
+
+  .chat-textarea:focus {
+    min-height: 80px;
+  }
+
+  .send-btn {
+    width: 40px;
+    height: 40px;
+    margin-left: 8px;
+  }
+
+  .icon-send,
+  .icon-stop {
+    width: 20px;
+    height: 20px;
+  }
+
+  .disclaimer {
+    font-size: 0.75rem;
+    margin: 6px 0;
+  }
 }
 
 .send-btn {

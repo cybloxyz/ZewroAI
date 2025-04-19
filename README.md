@@ -25,8 +25,11 @@ Please suggest more ideas in the Issues tab.
 
 ### V2
 
-- [x] ~~Reasoning/Chain-of-Thought functionality~~ (implemented through prompt-chaining & CoT prompting)
-- [ ] Search capabilities
+- [x] ~~Reasoning/Chain-of-Thought functionality~~
+
+### V3
+
+- [ ] More Agentic Thinking (extension of reasoning/chain of thought)
 
 ## VSCode Setup
 
