@@ -36,7 +36,7 @@ const currConvo = ref('');
 const conversationTitle = ref('');
 
 const autoReasoningMode = ref(false); // If true, chooses between reasoning and regular models automatically.
-const sidebarOpen = ref(true);
+const sidebarOpen = ref(window.innerWidth > 900); // Only enabled by default on larger screens, mobile users find it annoying to have to close the sidebar use the content.
 const chatLoading = ref(false);
 
 function toggleSidebar() {
@@ -140,32 +140,14 @@ async function sendMessage(message, reasoningOverride) {
         promptText,
         controller
       );
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed || trimmed === "data: [DONE]") continue;
-          try {
-            const json = JSON.parse(trimmed.replace("data: ", ""));
-            const content = json.choices[0].delta.content;
-            if (content) {
-              // Update the last assistant message's content in-place
-              messages.value[messages.value.length - 1].content += content;
-              triggerRerender.value++;
-              await nextTick();
-              if (chatPanel.value.isAtBottom && !chatPanel.value.userScrolling) {
-                chatPanel.value.scrollToEnd("instant");
-              }
-            }
-          } catch (err) {
-            console.error("Error parsing chunk:", err);
+      // Use the async iterator interface for streaming chunks
+      for await (const chunk of response) {
+        if (chunk) {
+          messages.value[messages.value.length - 1].content += chunk;
+          triggerRerender.value++;
+          await nextTick();
+          if (chatPanel.value.isAtBottom && !chatPanel.value.userScrolling) {
+            chatPanel.value.scrollToEnd("instant");
           }
         }
       }

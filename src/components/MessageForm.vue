@@ -222,6 +222,20 @@ function handleEnterKey() {
   }
 }
 
+.icon-send {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.icon-stop {
+  width: 24px;
+  height: 24px;
+}
+
 .send-btn {
   flex: 0 0 auto;
   width: 48px;
@@ -241,27 +255,33 @@ function handleEnterKey() {
   background: var(--send-disabled);
   cursor: not-allowed;
   transform: none;
+
+  .icon-send {
+    stroke: currentColor;
+  }
+
+  .icon-stop {
+    fill: currentColor;
+    stroke: currentColor;
+  }
+
+}
+
+.send-btn:not(:disabled) {
+
+  .icon-send {
+    stroke: #E0E0E0;
+  }
+
+  .icon-stop {
+    fill: #E0E0E0;
+    stroke: #E0E0E0;
+  }
 }
 
 .send-btn:not(:disabled):hover {
   background: var(--send-hover);
   transform: scale(1.1);
-}
-
-.icon-send {
-  width: 24px;
-  height: 24px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.icon-stop {
-  width: 24px;
-  height: 24px;
-  fill: currentColor;
 }
 
 .disclaimer {

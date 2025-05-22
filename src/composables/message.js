@@ -1,89 +1,116 @@
 /**
- * @fileoverview Interacts with the Llama 4 Scout AI model.
+ * @fileoverview Interacts with Llama 3.3 70b AI model (or similar).
+ * V25 - Adaptive Agentic "Inner Monologue" with refined adaptive depth.
+ * Focuses on AI self-determining step count, reliable completion signal,
+ * natural prose, and integrated critique/correction. Summary uses Markdown.
  */
 
-// Centralized API endpoint
-const API_ENDPOINT = "https://ai.hackclub.com/chat/completions"; // Replace if needed
+// API endpoint for the AI model
+const API_ENDPOINT = "https://ai.hackclub.com/chat/completions"; // Adjust if needed
+const MAX_AGENT_STEPS = 15; // Max reasoning steps; simple tasks should finish in 1.
 
 /**
- * Helper function to log message arrays as raw text to the console.
- * @param {object[]} messages - Array of message objects.
- * @param {string} prefix - Prefix for each log line.
+ * Logs message history to the console for debugging.
+ * Helps trace the conversation flow with the AI.
  */
 function _logMessagesRaw(messages, prefix) {
   console.log(`${prefix} Messages:`);
-  messages.forEach((msg) => {
-    console.log(`${prefix} Role: ${msg.role}`);
-    const contentToLog =
-      typeof msg.content === "string"
-        ? msg.content
-        : JSON.stringify(msg.content);
-    console.log(`${prefix} Content:\n${contentToLog}`);
-    console.log(`${prefix} ---`);
+  messages.forEach((msg, index) => {
+    const role = msg.role || "unknown_role"; // Default if role is missing
+    const content = msg.content || "[No Content]";
+    // Indent content for better readability in logs
+    const formattedContent =
+      typeof content === "string"
+        ? content.replace(/\n/g, `\n${prefix}   `)
+        : JSON.stringify(content, null, 2).replace(/\n/g, `\n${prefix}   `);
+
+    console.log(`${prefix} [${index}] Role: ${role}`);
+    console.log(`${prefix}   Content:\n${prefix}   ${formattedContent}`);
+    console.log(`${prefix} ---`); // Separator for clarity
   });
 }
 
 /**
- * Helper function to interact with the Llama 4 Scout API.
- * Handles fetch requests, basic error handling, and logging raw text.
- * @param {object[]} messages - The array of message objects for the API call.
- * @param {boolean} stream - Whether to request a streaming response.
- * @param {AbortSignal} signal - AbortController signal for cancellation.
- * @param {string} requestDescription - A description for logging purposes.
- * @returns {Promise<object|Response>} - Promise resolving to JSON data or Response.
- * @throws {Error} If the API call fails.
+ * Sends requests to the AI API and handles responses.
+ * This function is the workhorse for all AI interactions.
  */
-async function _callLlama4Scout(messages, stream, signal, requestDescription) {
-  console.log(`=== NEW REQUEST === (${requestDescription})`);
-  _logMessagesRaw(messages, `[${requestDescription} Request]`);
+async function _callLlamaAI(messages, stream, signal, requestDescription) {
+  const isCritique = requestDescription.includes("Critique Step");
+  // Be less noisy in logs for the frequent, internal critique calls
+  if (!isCritique) {
+    console.log(`=== NEW REQUEST === (${requestDescription})`);
+    _logMessagesRaw(messages, `[${requestDescription} Request]`);
+  } else {
+    // Minimal log for internal check
+    console.log(`--- Internal Critique Request (for prior AI step) ---`);
+  }
 
   try {
     const response = await fetch(API_ENDPOINT, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        // model: "llama-3.1-70b-versatile", // Example: Ensure this matches your endpoint's expected model
         messages: messages,
         stream: stream,
       }),
-      signal: signal,
+      signal: signal, // For aborting requests
     });
 
+    // Handle non-OK HTTP responses (e.g., 4xx, 5xx errors)
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(
-        `[${requestDescription}] API Error Status: ${response.status}`
-      );
-      console.error(
-        `[${requestDescription}] API Error Response:\n${errorText}`
-      );
-      throw new Error(
-        `API call failed for ${requestDescription} with status ${response.status}`
-      );
+      let errorBody = "[Could not extract error body from API response]";
+      try {
+        errorBody = await response.text();
+      } catch (e) {
+        /* Keep default if body read fails */
+      }
+      const errorText = `API call failed for ${requestDescription} with status ${response.status}. Response: ${errorBody}`;
+      console.error(errorText);
+      throw new Error(errorText); // Propagate a detailed error
     }
 
-    console.log(
-      `[${requestDescription}] API call successful (stream=${stream}).`
-    );
+    // Log success, again less verbosely for critique
+    if (!isCritique) {
+      console.log(
+        `[${requestDescription}] API call successful (stream=${stream}).`
+      );
+    } else {
+      console.log(`--- Internal Critique Response Received ---`);
+    }
+
+    // If streaming, the response body might be missing even on success (rarely)
+    if (stream && !response.body) {
+      console.warn(
+        `[${requestDescription}] Stream requested but API response has no body.`
+      );
+      // The caller will need to handle this (e.g., by trying a non-streaming parse or erroring)
+      return response;
+    }
+
+    // The critique step is always expected to be non-streaming JSON
+    if (isCritique) {
+      return await response.json();
+    }
+
+    // Return the Response object for streaming, or parsed JSON for non-streaming
     return stream ? response : await response.json();
   } catch (error) {
+    // Catch and log network/fetch errors or aborts
     if (error.name === "AbortError") {
-      console.log(`[${requestDescription}] API call aborted.`);
+      console.log(`[${requestDescription}] API call aborted by user.`);
     } else {
-      console.error(`[${requestDescription}] Fetch error: ${error.message}`);
-      console.error(error.stack);
+      // Log the full error for better diagnostics
+      console.error(`[${requestDescription}] Fetch/Network Error:`, error);
     }
+    // Re-throw to let the calling function handle it
     throw error;
   }
 }
 
 /**
- * Determines if a simulated reasoning process (chain-of-thought) should be used.
- * (This function remains the same)
- * @param {string} prompt - The user's latest input prompt.
- * @param {object[]} plainMessages - Simplified conversation history.
- * @returns {Promise<boolean>} - Promise resolving to true/false.
+ * Decides if the complex reasoning process ("inner monologue") should be used.
+ * This helps in quickly responding to simple queries without overthinking.
  */
 export async function shouldUseReasoning(prompt, plainMessages) {
   let historyString = "No history provided.";
@@ -92,42 +119,30 @@ export async function shouldUseReasoning(prompt, plainMessages) {
       .map((msg) => `${msg.role}: ${msg.content}`)
       .join("\n");
   }
+  // Clear instructions for the analyzer model
+  const systemMsg = `Analyze the user's latest query and conversation history. Is complex reasoning (logic, planning, multi-step deduction) required, or is it a simple request (like a greeting, quick question, or acknowledgement)?
+Provide a 1-sentence rationale, then state "Decision: true" (for complex) or "Decision: false" (for simple) on a new line.
 
-  const systemMsg = `You are an analyzer determining if a complex reasoning process is needed for a user query. Analyze the user's query and conversation history based on the rules below. First, briefly explain your reasoning in one sentence, then conclude with "Decision: true" or "Decision: false" on a new line.
-
-**Conversation History:**
+**History:**
 ${historyString}
 
-**Analysis Rules:**
-1.  **Overrides:**
-    * If the LATEST user query contains keywords like "use reasoning", "show thoughts", "think step-by-step", "agentic", "plan and execute", respond with "true".
-    * If the LATEST user query contains keywords like "no reasoning", "simple answer", "quick response", respond with "false".
-2.  **Complexity Assessment (if no overrides):**
-    * Respond with "true" if the query likely requires multiple steps, planning, logical deduction, calculations, code generation, or breaking down into sub-problems. Examples: "Write a python script for...", "Compare the pros and cons of...", "Plan a trip to...".
-    * Respond with "false" if the query asks for simple facts, definitions, summarizations of provided text, or straightforward instructions. Examples: "What is the capital of France?", "Summarize this text: ...", "Hello".
-
-**Your Task:** Analyze the LATEST user query below in the context of the history. Provide a one-sentence rationale, then the decision.
+**Guidelines:**
+- Logic puzzles, coding tasks, planning requests, detailed analysis -> true
+- Simple greetings ("hi", "hello"), direct factual questions ("what is X?"), expressions of thanks -> false
+- Multi-part questions requiring sequential answers -> true
+- Single, straightforward questions -> false
 
 **Latest User Query:**
 ${prompt}`;
 
   const messages = [{ role: "system", content: systemMsg }];
-
   try {
-    const data = await _callLlama4Scout(
-      messages,
-      false,
-      null,
-      "Reasoning Check"
-    );
-    if (
-      !data ||
-      !data.choices ||
-      data.choices.length === 0 ||
-      !data.choices[0].message
-    ) {
+    const data = await _callLlamaAI(messages, false, null, "Reasoning Check");
+    // Ensure the response structure is as expected
+    if (!data?.choices?.[0]?.message?.content) {
       console.error(
-        "[Reasoning Check] Invalid response structure received from API."
+        "[Reasoning Check] Invalid response structure from AI:",
+        data
       );
       throw new Error(
         "Received invalid response structure from reasoning check API call."
@@ -135,16 +150,21 @@ ${prompt}`;
     }
     const rawContent = data.choices[0].message.content.trim();
     console.log("[Reasoning Check] Raw LLM Response:\n" + rawContent);
-    const decisionMatch = rawContent.match(/Decision:\s*(true|false)$/i);
-    if (decisionMatch && decisionMatch[1]) {
+    // Use regex for reliable extraction of the decision
+    const decisionMatch = rawContent.match(/Decision:\s*(true|false)$/im); // Case-insensitive, multiline
+    if (decisionMatch?.[1]) {
       const decision = decisionMatch[1].toLowerCase() === "true";
       console.log("[Reasoning Check] Decision: " + decision);
       return decision;
     } else {
+      // Fallback if the specific "Decision: ..." format isn't found
       console.warn(
-        "[Reasoning Check] Could not find 'Decision: true/false'. Attempting fallback interpretation based on raw text."
+        "[Reasoning Check] Could not find 'Decision: true/false' marker. Attempting keyword fallback."
       );
-      if (rawContent.toLowerCase().includes("true")) {
+      if (
+        rawContent.toLowerCase().includes("true") &&
+        !rawContent.toLowerCase().includes("false")
+      ) {
         console.log("[Reasoning Check] Fallback decision: true");
         return true;
       }
@@ -153,45 +173,129 @@ ${prompt}`;
         return false;
       }
       console.warn("[Reasoning Check] Fallback failed. Defaulting to 'false'.");
-      return false;
+      return false; // Default to simple if unsure
     }
   } catch (error) {
     console.error(`Error in shouldUseReasoning: ${error.message}`);
-    return false;
+    return false; // Default to simple mode on error for safety
   }
 }
 
 /**
- * Simulates reasoning using Plan -> Solve -> Reflect -> Summarize flow
- * with enhanced prompts for better phase adherence. Yields intermediate steps.
+ * Parses the structured output from the hidden critique step.
+ * Extracts whether the step was flawed and the reason.
+ */
+function _parseCritique(critiqueOutput) {
+  const lowerOutput = critiqueOutput.toLowerCase();
+  // Look for "Critique Result: flawed" or "Critique Result: acceptable"
+  const resultMatch = lowerOutput.match(
+    /critique result:\s*(acceptable|flawed)/
+  );
+  // Look for the reason text after "Reason:"
+  const reasonMatch = critiqueOutput.match(/reason:\s*([\s\S]*)/i); // Capture multi-line reasons
+
+  // Default to flawed if "acceptable" is not explicitly found
+  const isAcceptable = resultMatch ? resultMatch[1] === "acceptable" : false;
+  const isFlawed = !isAcceptable;
+
+  const reason = reasonMatch
+    ? reasonMatch[1].trim()
+    : isFlawed
+      ? "Critique identified potential flaws or issues with step scope."
+      : "Step appears sound and appropriately scoped.";
+
+  return { isFlawed, reason };
+}
+
+/**
+ * Simulates reasoning using an adaptive "Inner Monologue" loop.
+ * Includes a hidden Critique & Correct cycle after each step.
+ * The AI determines the number of steps and uses natural prose.
  *
- * @param {string} system_prompt - Base system prompt.
- * @param {string} global_memory - Persistent information.
+ * @param {string} system_prompt - Base persona prompt.
+ * @param {string} global_memory - Persistent info/scratchpad.
  * @param {object[]} plainMessages - Simplified conversation history.
- * @param {string} prompt - The user's input prompt.
- * @param {AbortController} controller - AbortController for cancellation.
- * @yields {string} Chunks of the thinking process (Plan, Solve, Reflect) and final summary.
+ * @param {string} prompt - The user's request.
+ * @param {AbortController} controller - Allows cancellation.
+ * @yields {string} - Chunks of the agent's monologue (including corrections) or the final summary.
  */
 export async function* streamChainOfThought(
-  system_prompt,
+  system_prompt, // Base persona
   global_memory,
   plainMessages,
-  prompt,
+  prompt, // The user's actual request
   controller
 ) {
-  let fullThinkingProcess = "🤔 Let me think this through step by step\n\n";
-  console.log(fullThinkingProcess);
-  yield fullThinkingProcess;
+  const initialMsg = "🤔 Let me think this through step by step...\n\n";
+  console.log(initialMsg.trim());
+  yield initialMsg;
+  let fullThinkingProcess = initialMsg;
 
-  // --- Context Setup ---
+  // --- Agent Setup ---
   let historyString = "No history provided.";
   if (plainMessages && plainMessages.length > 0) {
     historyString = plainMessages
       .map((msg) => `${msg.role}: ${msg.content}`)
       .join("\n");
   }
-  const baseContextMessages = [
-    { role: "system", content: system_prompt },
+
+  // ** Agent System Prompt (Adaptive Inner Monologue - v25) **
+  // Guides AI to determine step count, use natural prose, and signal completion reliably.
+  const agentSystemPrompt = `${system_prompt}
+
+**Your Role:** You are simulating a meticulous **internal thought process** ("inner monologue") to arrive at the most accurate and complete answer to the user's request. Your goal is to reason effectively and efficiently, adapting your approach to the task's complexity.
+
+**Process:**
+1.  **Analyze Request:** Deeply understand the user's request, context, history, and ALL constraints/clues.
+2.  **Adaptive Reasoning Depth (CRITICAL):**
+    * For **simple requests** (e.g., greetings like "hi", quick factual questions, acknowledgements): Your internal monologue should be **ONE brief step**. Formulate your thought, and then **IMMEDIATELY** end that single response with "REASONING COMPLETE.".
+    * For **complex requests** (e.g., logic puzzles, coding, detailed analysis): Your monologue will involve multiple steps. Take **ONE logical step or deduction at a time.** Do not try to solve everything at once.
+3.  **Think Aloud (Natural Prose):** Explain your reasoning for each step using clear, natural language prose. Use conversational fillers ("Okay, let's see...", "Hmm, if that's true then...", "Wait a minute...") naturally to make your thought process clear. **Each response from you is one continuous block of thought; do not use external "Step X:" numbering.** You can structure *internal* sub-points within your prose if needed for clarity on a complex step.
+4.  **Grounding:** Base ALL reasoning STRICTLY on the provided information ONLY. Explicitly mention clue numbers or facts supporting deductions.
+5.  **Self-Correction (Guidance):** If you realize a mistake during your monologue, acknowledge it naturally ("Hold on, looking back...") and correct your path. (An internal critique will also occur after your step, prompting further correction if needed).
+6.  **Completion Signal (ESSENTIAL):** When your internal monologue has fully addressed the request (whether in one step for simple tasks or multiple for complex ones) and you have performed a final mental check, end your *very last* thought process response with the exact phrase "REASONING COMPLETE." on a new line. **This is the ONLY way to signal your thinking is done.**
+
+Begin your internal thought process. Assess the request and take your first step. If it's simple, this first step might be your only step.
+
+---
+REMEMBER: **Adapt your number of steps.** For simple inputs, ONE step ending with "REASONING COMPLETE." is often enough. For complex ones, take ONE small logical step per turn. **The "REASONING COMPLETE." signal is VITAL and marks the end of your *entire* thought process for this request.**`;
+
+  // ** System Prompt for the HIDDEN Critique Step **
+  // Focuses on logical soundness and if the step was appropriately conclusive for simple tasks.
+  const critiqueSystemPrompt = `You are a strict logical reviewer. Your ONLY task is to analyze the provided SINGLE reasoning step.
+
+**Reasoning Step to Review:**
+[REASONING_STEP_TEXT]
+
+**Instructions:**
+1.  **Logic Check:** Is the deduction/reasoning within this step logically sound based on hypothetical prior context?
+2.  **Granularity/Sufficiency Assessment:**
+    * If the original user request was likely **simple** (e.g., a greeting): Did this step adequately address it AND did it (or should it have) ended with "REASONING COMPLETE."? If it's a good single response for a simple query but lacks the marker, it's flawed.
+    * If the original request was likely **complex**: Did this step focus on ONLY ONE small, logical deduction or clue application? Or did it try to do too much? Is it a reasonable increment of progress?
+3.  Output your verdict in the following format ONLY:
+    Critique Result: [Acceptable/Flawed]
+    Reason: [Provide a brief explanation ONLY if Flawed (e.g., "For a simple greeting, this is a complete thought and should have ended with REASONING COMPLETE.", "Step attempted too many deductions at once.", "Logical leap."). If Acceptable, state "Step appears sound and appropriately scoped for this stage of reasoning."]`;
+
+  // ** System Prompt for the VISIBLE Correction Step **
+  // Guides the AI to respond naturally based on the critique.
+  const correctionSystemPrompt = `You are continuing your internal thought process. Upon further reflection (prompted by an internal check), it seems your immediately preceding reasoning step needs refinement or correction.
+
+**Your Previous Step (which was just critiqued):**
+[FLAWED_STEP_TEXT]
+
+**Identified Issue from Internal Check:**
+[CRITIQUE_REASON]
+
+**Your Task:**
+1.  Acknowledge the need for correction naturally, as part of your ongoing monologue (e.g., "Wait a minute, that's a good point, let me refine that...", "Hold on, I see the issue with my last thought. Correcting that now...", "Okay, on second thought..."). Use conversational fillers.
+2.  Provide the **corrected version of ONLY that single reasoning step**, addressing the identified issue. Ensure the corrected step is appropriately granular and logical.
+3.  If this corrected step now completes the entire reasoning process (e.g., it fully answers a simple request, or it's the final step for a complex one) and is verified, end this response with "REASONING COMPLETE." on a new line. Otherwise, simply provide the corrected step.
+
+Provide your corrected reasoning naturally as part of your monologue.`;
+
+  // Initial message history for the main agent loop
+  let agentMessages = [
+    { role: "system", content: agentSystemPrompt },
     {
       role: "system",
       content: `Relevant Memory/Scratchpad:\n${global_memory || "None provided."}`,
@@ -200,276 +304,323 @@ export async function* streamChainOfThought(
       role: "system",
       content: `Conversation History (for context):\n${historyString}`,
     },
-    // User prompt is added specifically for the phase that needs it most directly
+    { role: "user", content: prompt },
   ];
 
-  let planText = "";
-  let solveText = "";
-  let reflectionText = "";
+  let stepCount = 0;
+  let reasoningComplete = false;
+  let finalReasoningOutput = "[Reasoning did not complete or produce output]";
 
   try {
-    // --- PHASE 1: PLAN ---
-    const planHeader = `### PLAN ###\n`;
-    fullThinkingProcess += planHeader;
-    console.log(planHeader);
-    yield planHeader; // Yield header immediately
+    // --- Agent Loop ---
+    while (stepCount < MAX_AGENT_STEPS && !reasoningComplete) {
+      stepCount++;
+      const stepDescription = `Agent Reasoning Step ${stepCount}`;
+      let currentTurnOutput = ""; // Text yielded this turn
+      let currentHistoryContent = ""; // Text added to history for the next AI call
 
-    // Enhanced prompt for PLAN phase
-    const planSystemPrompt = `[ROLE] You are ONLY the PLANNER. Your sole task is to outline the steps needed to solve the user's request.
+      // --- 1. Generate Reasoning Step ---
+      const solveResponseData = await _callLlamaAI(
+        agentMessages,
+        false,
+        controller.signal,
+        stepDescription
+      );
+      if (!solveResponseData?.choices?.[0]?.message?.content) {
+        console.error(
+          `Invalid AI Solve Step response at step ${stepCount}:`,
+          solveResponseData
+        );
+        const errorMsg = `\n\n[System Error: AI response missing content at step ${stepCount}.]\n\n`;
+        fullThinkingProcess += errorMsg;
+        console.log(errorMsg.trim());
+        yield errorMsg;
+        reasoningComplete = true;
+        finalReasoningOutput = "[Error in reasoning step]";
+        continue;
+      }
+      const initialSolveStepText =
+        solveResponseData.choices[0].message.content.trim();
+      currentTurnOutput = initialSolveStepText; // This will be yielded
+      currentHistoryContent = initialSolveStepText; // This will be added to history if not corrected
 
-[CONTEXT] Consider the user's request below, plus any relevant conversation history and memory provided earlier.
-User Request: ${prompt}
+      const logSolveText = `[Agent Step ${stepCount} - Attempt]\n${initialSolveStepText}\n\n`;
+      fullThinkingProcess += logSolveText;
+      console.log(logSolveText.trim());
+      // Yield the initial attempt, it might be corrected or stand as is.
+      // The user sees this raw thought.
+      yield initialSolveStepText + "\n\n";
 
-[TASK] Create a concise, step-by-step plan in plain text describing HOW you will solve the request. List the main stages or actions you will take.
+      // --- 2. Perform Hidden Critique Step ---
+      const critiqueMessages = [
+        {
+          role: "system",
+          content: critiqueSystemPrompt.replace(
+            "[REASONING_STEP_TEXT]",
+            initialSolveStepText
+          ),
+        },
+      ];
+      let critiqueResult = {
+        isFlawed: false,
+        reason: "Critique step failed or produced invalid output.",
+      };
+      try {
+        const critiqueResponseData = await _callLlamaAI(
+          critiqueMessages,
+          false,
+          controller.signal,
+          `Critique Step ${stepCount}`
+        );
+        if (critiqueResponseData?.choices?.[0]?.message?.content) {
+          critiqueResult = _parseCritique(
+            critiqueResponseData.choices[0].message.content.trim()
+          );
+          console.log(
+            `--- Critique (Step ${stepCount}): ${critiqueResult.isFlawed ? "Flawed" : "Acceptable"}. Reason: ${critiqueResult.reason} ---`
+          );
+          fullThinkingProcess += `--- [Internal Critique ${stepCount}] Result: ${critiqueResult.isFlawed ? "Flawed" : "Acceptable"}. Reason: ${critiqueResult.reason} ---\n\n`;
+        } else {
+          console.warn(
+            `[Critique Step ${stepCount}] Invalid response structure. Assuming step was acceptable.`
+          );
+          fullThinkingProcess += `--- [Internal Critique ${stepCount}] Error: Invalid response. Assumed acceptable. ---\n\n`;
+          critiqueResult.isFlawed = false;
+        }
+      } catch (critiqueError) {
+        if (critiqueError.name === "AbortError") throw critiqueError;
+        console.error(
+          `Error during Critique Step ${stepCount}:`,
+          critiqueError
+        );
+        fullThinkingProcess += `--- [Internal Critique ${stepCount}] Error: ${critiqueError.message}. Assumed acceptable. ---\n\n`;
+        critiqueResult.isFlawed = false;
+      }
 
-[OUTPUT FORMAT] Output *only* the plan text itself.
+      // --- 3. Perform Visible Correction Step (If Needed) ---
+      if (critiqueResult.isFlawed) {
+        console.log(
+          `--- Flaw detected in Step ${stepCount} (Critique: ${critiqueResult.reason}), attempting correction ---`
+        );
+        fullThinkingProcess += `--- [System Requesting Correction for Step ${stepCount} due to: ${critiqueResult.reason}] ---\n`;
 
-[IMPORTANT] Stick strictly to your role as PLANNER. Do *not* actually perform the steps or solve the problem now. Your output must be the plan only.`;
+        // History for correction: main history + the flawed assistant step + correction prompt
+        const correctionMessages = [
+          ...agentMessages, // History *before* the flawed step was added to main agentMessages
+          { role: "assistant", content: initialSolveStepText }, // The flawed step for context
+          {
+            role: "system",
+            content: correctionSystemPrompt
+              .replace("[FLAWED_STEP_TEXT]", initialSolveStepText)
+              .replace("[CRITIQUE_REASON]", critiqueResult.reason),
+          },
+        ];
 
-    // Include user prompt specifically for planning context
-    const planMessages = [
-      ...baseContextMessages,
-      { role: "user", content: prompt },
-      { role: "system", content: planSystemPrompt },
-    ];
-    const planData = await _callLlama4Scout(
-      planMessages,
-      false,
-      controller.signal,
-      "Plan Phase"
-    );
-    if (!planData || !planData.choices || !planData.choices[0].message)
-      throw new Error("Invalid PLAN response");
-    planText = planData.choices[0].message.content.trim();
+        const correctionResponseData = await _callLlamaAI(
+          correctionMessages,
+          false,
+          controller.signal,
+          `Correction Step ${stepCount}`
+        );
+        if (correctionResponseData?.choices?.[0]?.message?.content) {
+          const correctedStepText =
+            correctionResponseData.choices[0].message.content.trim();
+          currentTurnOutput = correctedStepText; // This is what's yielded
+          currentHistoryContent = correctedStepText; // This is what goes into history
 
-    const planOutput = `${planText}\n\n`; // Plan text + spacing
-    fullThinkingProcess += planOutput;
-    console.log(planText); // Log the plan text
-    yield planOutput; // Yield the plan text
+          const logCorrectionText = `[Correction Step ${stepCount}]\n${correctedStepText}\n\n`;
+          fullThinkingProcess += logCorrectionText;
+          console.log(logCorrectionText.trim());
+          // Yield the corrected step, replacing the initial one in the user's view for this "turn"
+          yield correctedStepText + "\n\n";
+        } else {
+          // If correction fails, we stick with the original potentially flawed step for history
+          const correctionErrorMsg = `\n[System Error: Failed to generate correction for step ${stepCount}. Original step output for this turn will be used in history.]\n\n`;
+          console.error(correctionErrorMsg.trim());
+          fullThinkingProcess += correctionErrorMsg;
+          yield correctionErrorMsg;
+          // currentTurnOutput and currentHistoryContent remain initialSolveStepText
+        }
+      }
+      // else: No correction needed. currentTurnOutput and currentHistoryContent are already initialSolveStepText.
 
-    // --- PHASE 2: SOLVE ---
-    const solveHeader = `### SOLVE ###\n`;
-    fullThinkingProcess += solveHeader;
-    console.log(solveHeader);
-    yield solveHeader; // Yield header immediately
+      // --- 4. Add the FINAL output of this turn (original or corrected) to main agent history ---
+      agentMessages.push({ role: "assistant", content: currentHistoryContent });
 
-    // Enhanced prompt for SOLVE phase
-    const solveSystemPrompt = `[ROLE] You are ONLY the SOLVER. Your sole task is to execute the plan created previously.
+      // --- 5. Check for Completion Signal in the FINAL output of this turn ---
+      finalReasoningOutput = currentHistoryContent; // Update with the content that went into history
+      const completionMarker = "REASONING COMPLETE.";
+      const completionRegex = new RegExp(
+        `\\s*${completionMarker.replace(".", "\\.")}\\s*$`
+      );
 
-[CONTEXT] Execute the plan below to address the original user request.
-User Request: ${prompt}
-Your Plan:
-${planText}
+      if (completionRegex.test(currentHistoryContent)) {
+        reasoningComplete = true;
+        // Remove marker from finalReasoningOutput for the summary stage
+        finalReasoningOutput = currentHistoryContent
+          .replace(completionRegex, "")
+          .trim();
+        console.log("AI indicated reasoning complete.");
+        // The actual content (without marker) was already yielded.
+      }
 
-[TASK] Follow the plan. Reason step-by-step, applying logical inference based on the given information and any relevant rules or constraints. Consider different possibilities and evaluate them against the known facts. Build towards a conclusion by ensuring each step is consistent with the initial conditions and prior deductions. If the information leads to an ambiguous or impossible outcome, identify and state that limitation.
+      // Prevent conversation history getting too long
+      if (agentMessages.length > 15) {
+        const systemPrompts = agentMessages.filter((m) => m.role === "system");
+        const userPromptMsg = agentMessages.find((m) => m.role === "user");
+        const recentAssistantTurns = agentMessages
+          .filter((m) => m.role === "assistant")
+          .slice(-5);
+        agentMessages = [
+          ...systemPrompts,
+          userPromptMsg,
+          ...recentAssistantTurns,
+        ].filter(Boolean);
+      }
+    } // End of while loop
 
-[OUTPUT FORMAT] Output *ONLY* your reasoning process and conclusion.
+    // Handle reaching max steps
+    if (stepCount >= MAX_AGENT_STEPS && !reasoningComplete) {
+      const maxStepMsg =
+        "[System: Reached maximum reasoning steps without signaling completion. Proceeding to summary based on the current state.]\n\n";
+      console.warn(maxStepMsg.trim());
+      fullThinkingProcess += maxStepMsg;
+      yield maxStepMsg;
+    }
 
-[IMPORTANT] Stick strictly to your role as SOLVER executing the provided plan. Your output must be the reasoning process.
-`;
-
-    // Include user prompt and plan as context
-    const solveMessages = [
-      ...baseContextMessages, // Base context (system prompt, memory, history)
-      { role: "user", content: prompt }, // Original request
-      { role: "system", content: `[CONTEXT: Your Plan]\n${planText}` }, // Plan context
-      { role: "system", content: solveSystemPrompt }, // Solve instruction
-    ];
-    const solveData = await _callLlama4Scout(
-      solveMessages,
-      false,
-      controller.signal,
-      `Solve Phase`
-    );
-    if (!solveData || !solveData.choices || !solveData.choices[0].message)
-      throw new Error(`Invalid SOLVE response`);
-    solveText = solveData.choices[0].message.content.trim();
-
-    const solveOutput = `${solveText}\n\n`; // Solve text + spacing
-    fullThinkingProcess += solveOutput;
-    console.log(solveText); // Log the solve text
-    yield solveOutput; // Yield the solve text
-
-    // --- PHASE 3: REFLECT ---
-    const reflectHeader = `### REFLECT ###\n`;
-    fullThinkingProcess += reflectHeader;
-    console.log(reflectHeader);
-    yield reflectHeader; // Yield header immediately
-
-    // Enhanced prompt for REFLECT phase
-    const reflectSystemPrompt = `[ROLE] You are ONLY the REVIEWER. Your sole task is to critically evaluate the reasoning process and conclusion performed previously.
-
-[CONTEXT] Review the original user request, the plan, and the complete reasoning process provided below.
-User Request: ${prompt}
-Plan Created:
-${planText}
-
-[TASK] Critically evaluate the reasoning process based on the plan and the original request.
- - Was the reasoning process logical and sound?
- - Does the conclusion follow validly from the initial information and steps taken?
- - Is the conclusion consistent with all given facts and constraints?
- - Were potential ambiguities or impossibilities identified correctly?
- - **Based on your critique, determine if the reasoning attempt was successful or if a retry is needed.**
-
-Provide your review as concise points. Conclude your response with a line indicating if a retry is needed, using the format: "RETRY_NEEDED: Yes" or "RETRY_NEEDED: No".
-
-[OUTPUT FORMAT] Output *only* your critique, followed by the RETRY_NEEDED line.
-
-[IMPORTANT] Stick strictly to your role as REVIEWER. Do *not* repeat the plan or reasoning. Do *not* re-solve the problem. Your output must be the critique and the retry decision.`;
-
-    const reflectMessages = [
-      // Minimal context needed: just the instruction and the items to review
-      { role: "system", content: `[CONTEXT: User Request]\n${prompt}` },
-      { role: "system", content: `[CONTEXT: Plan Created]\n${planText}` },
-      {
-        role: "system",
-        content: `[CONTEXT: Solution Steps Executed]\n${solveText}`,
-      },
-      { role: "system", content: reflectSystemPrompt },
-    ];
-    const reflectData = await _callLlama4Scout(
-      reflectMessages,
-      false,
-      controller.signal,
-      "Reflect Phase"
-    );
-    if (!reflectData || !reflectData.choices || !reflectData.choices[0].message)
-      throw new Error("Invalid REFLECT response");
-    reflectionText = reflectData.choices[0].message.content.trim();
-
-    const reflectOutput = `${reflectionText}\n\n`; // Reflect text + spacing
-    fullThinkingProcess += reflectOutput;
-    console.log(reflectionText); // Log reflection text
-    yield reflectOutput; // Yield the reflection text
-
-    // --- PHASE 4: SUMMARIZE ---
+    // --- Summarization Stage ---
     const summarySeparator = `### SUMMARIZE ###\n`;
+    // Capture context *before* adding separator to fullThinkingProcess
+    const reasoningContextForSummary = fullThinkingProcess
+      .substring(0, fullThinkingProcess.lastIndexOf(summarySeparator))
+      .trim();
     fullThinkingProcess += summarySeparator;
-    console.log(summarySeparator);
-    yield summarySeparator; // Yield separator
+    console.log(summarySeparator.trim());
+    yield summarySeparator;
 
-    // Enhanced prompt for SUMMARIZE phase
-    const summarySystemPrompt = `[ROLE] You are ONLY the FINAL ANSWER provider.
+    // Final Summarize Prompt (Markdown output)
+    const summarySystemPrompt = `[ROLE] You are the FINAL RESPONSE writer. Your task is to synthesize the preceding internal thought process into a polished, user-facing answer.
 
-[CONTEXT] Based on the previous reasoning (Plan, Solve, Reflect), determine the final answer to the original user request.
+[CONTEXT] Below is the internal monologue simulation (including any self-corrections) used to address the user's request.
 User Request: ${prompt}
-Plan: ${planText}
-Solution Steps: ${solveText}
-Review: ${reflectionText}
+Completed Internal Monologue:
+${reasoningContextForSummary}
 
-[TASK] Provide *only* the final answer to the user's original request. Present it clearly, directly, and concisely in plain text.
+[TASK] Craft the final response for the user based *only* on the outcome of the internal monologue.
+- Address the user directly.
+- Present the final answer or conclusion derived during the monologue in a friendly, conversational manner.
+- **Format your response using Markdown.** Use paragraphs, **bolding** for key results or names, and lists (\`*\` or \`-\`) where appropriate for clarity and readability.
+- If a definitive solution was reached, state it clearly.
+- If the monologue ended due to errors, hitting limits, or uncertainty, explain that politely.
+- **DO NOT** mention the "internal monologue", "reasoning steps", or critique process in your response to the user. Focus purely on delivering the result.
 
-[OUTPUT FORMAT] Output *only* the final answer itself.
+[OUTPUT FORMAT] Output *only* the final user-facing summary text, formatted using Markdown.`;
 
-[IMPORTANT] Stick strictly to your role as FINAL ANSWER provider. Do *not* include your planning, solving, or reflection steps. Your output must be only the answer.`;
-
-    // Provide necessary context for final answer synthesis
     const summaryMessages = [
       { role: "system", content: `[CONTEXT: User Request]\n${prompt}` },
-      { role: "system", content: `[CONTEXT: Plan]\n${planText}` },
-      { role: "system", content: `[CONTEXT: Solution Steps]\n${solveText}` },
-      { role: "system", content: `[CONTEXT: Review]\n${reflectionText}` },
+      {
+        role: "system",
+        content: `[CONTEXT: Completed Internal Monologue]\n${reasoningContextForSummary}`,
+      },
       { role: "system", content: summarySystemPrompt },
     ];
 
-    // Use streaming for the final summary answer
-    const summaryResponse = await _callLlama4Scout(
+    const summaryResponse = await _callLlamaAI(
       summaryMessages,
       true,
       controller.signal,
       "Summarize Phase"
     );
 
-    // Stream processing logic (parses JSON chunks for text - same as before)
-    const reader = summaryResponse.body.getReader();
-    const decoder = new TextDecoder();
-    let summaryAccumulator = "";
-    let leftover = "";
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) {
-        if (leftover.trim()) {
-          try {
-            const jsonChunk = JSON.parse(leftover.trim());
-            const content = jsonChunk?.choices?.[0]?.delta?.content;
-            if (content) {
-              summaryAccumulator += content;
-              fullThinkingProcess += content;
-              console.log(content);
-              yield content;
-            }
-          } catch (e) {
-            console.warn(
-              "[Summarize Phase] Error parsing leftover stream data:",
-              leftover,
-              e
-            );
-          }
-        }
-        break;
+    // Stream processing logic (same as v18)
+    async function* processSummaryStream(response) {
+      if (!response?.body) {
+        console.error(
+          "[Summarize Phase] Error: Invalid response object or missing body for streaming summary."
+        );
+        yield "\n\n[Error: Failed to stream summary response.]";
+        return;
       }
-      const textChunk = leftover + decoder.decode(value, { stream: true });
-      let potentialJsons = textChunk.split(/(?<=\})\s*(?=\{)/);
-      leftover = "";
-      for (let i = 0; i < potentialJsons.length; i++) {
-        let potentialJsonString = potentialJsons[i].trim();
-        if (!potentialJsonString) continue;
-        try {
-          const jsonChunk = JSON.parse(potentialJsonString);
-          const content = jsonChunk?.choices?.[0]?.delta?.content;
-          if (content) {
-            summaryAccumulator += content;
-            fullThinkingProcess += content;
-            console.log(content);
-            yield content;
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let leftover = "";
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            if (leftover.trim()) {
+              try {
+                const jsonChunk = JSON.parse(leftover.trim());
+                const content = jsonChunk?.choices?.[0]?.delta?.content;
+                if (content) yield content;
+              } catch (e) {
+                console.warn(
+                  "[Summarize Phase] Error parsing leftover JSON data:",
+                  leftover,
+                  e
+                );
+              }
+            }
+            break;
           }
-          if (i === potentialJsons.length - 1) {
-            leftover = "";
-          }
-        } catch (e) {
-          if (i === potentialJsons.length - 1) {
-            leftover = potentialJsonString;
-          } else {
-            console.warn(
-              "[Summarize Phase] Failed to parse intermediate JSON chunk:",
-              potentialJsonString,
-              e
-            );
+          const textChunk = leftover + decoder.decode(value, { stream: true });
+          const jsonObjects = textChunk.split(/(?<=\})\s*(?=\{)/);
+          leftover = "";
+          for (let i = 0; i < jsonObjects.length; i++) {
+            let potentialJsonString = jsonObjects[i].trim();
+            if (!potentialJsonString) continue;
+            try {
+              const jsonChunk = JSON.parse(potentialJsonString);
+              const content = jsonChunk?.choices?.[0]?.delta?.content;
+              if (content) yield content;
+              if (i === jsonObjects.length - 1) leftover = "";
+            } catch (e) {
+              if (i === jsonObjects.length - 1) leftover = potentialJsonString;
+              else
+                console.warn(
+                  "[Summarize Phase] Failed to parse intermediate JSON chunk:",
+                  potentialJsonString,
+                  e
+                );
+            }
           }
         }
+      } finally {
+        console.log(`[Summarize Phase] End of stream.`);
       }
     }
-    console.log(`[Summarize Phase] End of stream.`);
+    for await (const chunk of processSummaryStream(summaryResponse)) {
+      yield chunk;
+    }
   } catch (error) {
+    // Handle errors from the main agent loop try block
     if (error.name !== "AbortError") {
       console.error(`Error during streamChainOfThought: ${error.message}`);
       const errorMsg = `\n\n--- ERROR ---\nAn error occurred during processing: ${error.message}\n`;
-      fullThinkingProcess += errorMsg;
-      console.log(errorMsg);
-      yield errorMsg; // Yield error after the separator it failed on
+      if (!fullThinkingProcess.includes(errorMsg))
+        fullThinkingProcess += errorMsg;
+      console.log(errorMsg.trim());
+      yield errorMsg;
     } else {
       const abortMsg = "\n\n--- ABORTED ---\nProcessing was cancelled.\n";
-      fullThinkingProcess += abortMsg;
-      console.log(abortMsg);
-      yield abortMsg; // Yield abort message
+      if (!fullThinkingProcess.includes(abortMsg))
+        fullThinkingProcess += abortMsg;
+      console.log(abortMsg.trim());
+      yield abortMsg;
     }
   } finally {
+    // Log the thinking process *before* the summary separator
+    const finalReasoningLog = fullThinkingProcess
+      .substring(0, fullThinkingProcess.lastIndexOf("### SUMMARIZE ###"))
+      .trim();
     console.log("\n--- Full Raw Thinking Process Log ---");
-    console.log(fullThinkingProcess);
+    console.log(finalReasoningLog);
     console.log("--- End of Raw Thinking Process ---");
   }
 }
 
 /**
  * Handles regular, non-reasoning messages.
- * (Remains the same, yielding text chunks)
- * @param {string} system_prompt - Base system prompt.
- * @param {string} global_memory - Persistent information.
- * @param {object[]} plainMessages - Simplified conversation history.
- * @param {string} prompt - The user's input prompt.
- * @param {AbortController} controller - AbortController for cancellation.
- * @returns {AsyncGenerator<string, void, unknown>} - Async generator yielding text chunks.
  */
 export async function regularMsg(
   system_prompt,
@@ -496,67 +647,115 @@ export async function regularMsg(
     },
     { role: "user", content: prompt },
   ];
-
   try {
-    const response = await _callLlama4Scout(
+    const response = await _callLlamaAI(
       messages,
       true,
       controller.signal,
       "Regular Message"
     );
     async function* processStream() {
+      if (!response?.body) {
+        console.error(
+          "[Regular Message] Error: Invalid response object or missing body for streaming."
+        );
+        try {
+          const fallbackData = await response.clone().json();
+          if (fallbackData?.choices?.[0]?.message?.content) {
+            console.warn(
+              "[Regular Message] Falling back to non-streaming response."
+            );
+            yield fallbackData.choices[0].message.content;
+            return;
+          }
+        } catch (e) {
+          /* Ignore */
+        }
+        yield "\n\n[Error: Failed to get streamable response.]";
+        return;
+      }
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let leftover = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-          if (leftover.trim()) {
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            if (leftover.trim()) {
+              try {
+                const jsonChunk = JSON.parse(leftover.trim());
+                const content = jsonChunk?.choices?.[0]?.delta?.content;
+                if (content) yield content;
+              } catch (e) {
+                console.warn(
+                  "[Regular Message] Error parsing leftover stream data:",
+                  leftover,
+                  e
+                );
+              }
+            }
+            break;
+          }
+          const textChunk = leftover + decoder.decode(value, { stream: true });
+          const jsonObjects = textChunk.split(/(?<=\})\s*(?=\{)/);
+          leftover = "";
+          for (let i = 0; i < jsonObjects.length; i++) {
+            let potentialJsonString = jsonObjects[i].trim();
+            if (!potentialJsonString) continue;
             try {
-              const jsonChunk = JSON.parse(leftover.trim());
+              const jsonChunk = JSON.parse(potentialJsonString);
               const content = jsonChunk?.choices?.[0]?.delta?.content;
               if (content) yield content;
+              if (i === jsonObjects.length - 1) leftover = "";
             } catch (e) {
-              console.warn(
-                "[Regular Message] Error parsing leftover stream data:",
-                leftover,
-                e
-              );
-            }
-          }
-          break;
-        }
-        const textChunk = leftover + decoder.decode(value, { stream: true });
-        let potentialJsons = textChunk.split(/(?<=\})\s*(?=\{)/);
-        leftover = "";
-        for (let i = 0; i < potentialJsons.length; i++) {
-          let potentialJsonString = potentialJsons[i].trim();
-          if (!potentialJsonString) continue;
-          try {
-            const jsonChunk = JSON.parse(potentialJsonString);
-            const content = jsonChunk?.choices?.[0]?.delta?.content;
-            if (content) yield content;
-            if (i === potentialJsons.length - 1) {
-              leftover = "";
-            }
-          } catch (e) {
-            if (i === potentialJsons.length - 1) {
-              leftover = potentialJsonString;
-            } else {
-              console.warn(
-                "[Regular Message] Failed to parse intermediate JSON chunk:",
-                potentialJsonString,
-                e
-              );
+              if (i === jsonObjects.length - 1) leftover = potentialJsonString;
+              else
+                console.warn(
+                  "[Regular Message] Failed to parse intermediate JSON chunk:",
+                  potentialJsonString,
+                  e
+                );
             }
           }
         }
+      } finally {
+        /* Optional: reader.releaseLock(); */
       }
-      console.log(`[Regular Message] End of stream.`);
     }
     return processStream();
   } catch (error) {
     console.error(`Error in regularMsg: ${error.message}`);
-    throw error;
+    async function* errorStream() {
+      yield `\n\n[Error: Failed to get response - ${error.message}]`;
+    }
+    return errorStream();
   }
 }
+/*
+
+**Key Changes in v25 (from v24 in Canvas):**
+
+1.  **Agent System Prompt (`agentSystemPrompt`):**
+    * Point #2 ("Adaptive Reasoning Depth") is now much more explicit about how to handle simple vs. complex requests regarding the number of steps and the `REASONING COMPLETE.` signal.
+    * Point #3 ("Think Aloud") strongly reinforces using natural prose and avoiding external step numbering.
+    * Point #6 ("Completion Signal") is highlighted as "ESSENTIAL" and the "ONLY way" to signal completion.
+    * The "REMEMBER" section at the end re-emphasizes these key points.
+
+2.  **Critique Prompt (`critiqueSystemPrompt`):**
+    * Point #2 ("Granularity/Sufficiency Assessment") is now more detailed. It explicitly asks the critique to check if a simple request was handled in one step AND ended with `REASONING COMPLETE.`. If not, it's flawed. For complex requests, it still checks if the step was granular or tried to do too much.
+
+3.  **Correction Prompt (`correctionSystemPrompt`):**
+    * Point #3 now clearly states that if the *corrected* step completes the *entire* reasoning process (for simple or complex tasks), it should then end with `REASONING COMPLETE.`.
+
+4.  **Loop Logic & History Management (`streamChainOfThought`):**
+    * **Yielding Initial Step:** The `initialSolveStepText` is now yielded *before* the critique. This makes the process more transparent to the user, showing the AI's first attempt for that turn.
+    * **History Update for Correction:** The logic for updating `agentMessages` after a correction was refined. The goal is that the `agentMessages` array, which is used to prompt the *next* reasoning step, should always contain the *final accepted version* of the *previous* assistant's turn (either the original if critique passed, or the corrected version if critique led to a fix).
+        * The `correctionMessages` array is built using the main `agentMessages` *up to the user prompt*, then the `initialSolveStepText` (flawed step) is added as context for the AI doing the correction.
+        * After the correction (or if no correction was needed), `currentHistoryContent` (which holds the final text for that turn) is then pushed to the main `agentMessages` as the assistant's response for that completed turn.
+    * **`finalReasoningOutput` Update:** This variable is now consistently updated with `currentHistoryContent` at the end of each loop iteration *before* checking for the completion marker. This ensures it always holds the text of the last step that was added to the history.
+    * **Yielding Corrected Step:** If a correction occurs, the `correctedStepText` is yielded, effectively replacing the initial flawed attempt in the user's view for that turn.
+
+5.  **Placeholder Syntax:** Confirmed and ensured `[PLACEHOLDER_NAME]` is used in system prompts for clarity when referring to text that will be injected by the code.
+
+These changes aim to make the agent more discerning about when its reasoning is truly "complete" for simple tasks, enforce stricter granularity on complex tasks, and ensure the critique/correction cycle works smoothly to improve the reliability and logical soundness of each st
+*/

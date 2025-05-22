@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onBeforeUnmount, onMounted } from 'vue';
+import { ref, onBeforeUnmount, onMounted, nextTick } from 'vue';
 import localforage from 'localforage';
 import { emitter } from '@/emitter';
 
@@ -8,6 +8,7 @@ const props = defineProps(['currConvo', 'messages', 'isDark', 'isOpen']);
 
 const metadata = ref([]);
 const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1200);
+const conversationListRef = ref(null);
 
 function handleResize() {
   windowWidth.value = window.innerWidth;
@@ -24,7 +25,12 @@ onBeforeUnmount(() => {
 
 async function updateConversations() {
   const stored = await localforage.getItem("conversations_metadata");
-  metadata.value = stored || []
+  metadata.value = stored || [];
+
+  await nextTick();
+  if (conversationListRef.value) {
+    conversationListRef.value.scrollTop = -conversationListRef.value.scrollHeight;
+  }
 }
 
 updateConversations() // Initial load
@@ -56,7 +62,7 @@ function closeSidebar() {
         <span>New Chat</span>
       </button>
       <div class="main-content">
-        <div class="conversation-list" v-if="metadata.length">
+        <div class="conversation-list" ref="conversationListRef" v-if="metadata.length">
           <div class="conversation-wrapper" v-for="data in metadata" :key="data.id">
             <button class="conversation-button" @click="$emit('changeConversation', data.id)"
               :class="{ active: data.id == currConvo }">
@@ -201,6 +207,8 @@ function closeSidebar() {
 .conversation-list {
   display: flex;
   flex-direction: column-reverse;
+  overflow-y: auto;
+  max-height: 400px;
   gap: 4px;
 }
 

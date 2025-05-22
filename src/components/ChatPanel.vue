@@ -167,7 +167,7 @@ onMounted(() => {
         <div class="message-wrapper">
           <!-- Move details above the bubble -->
           <details v-if="message.role === 'assistant' && isChainOfThought(message.content)" class="reasoning-details">
-            <summary>
+            <summary class="reasoning-summary">
               Reasoning process ({{ getThinkingTime(message) }})
             </summary>
             <div class="reasoning-steps">
@@ -211,7 +211,8 @@ onMounted(() => {
 .chat-container {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
+  /* Adjusted gap */
   width: 100%;
   max-width: 800px;
   /* Match the main container width */
@@ -233,11 +234,16 @@ onMounted(() => {
 
 .bubble {
   max-width: 90%;
-  padding: 16px;
-  border-radius: 24px;
-  line-height: 1.5;
+  padding: 14px 18px;
+  /* Adjusted padding */
+  border-radius: 20px;
+  /* Adjusted border-radius */
+  line-height: 1.6;
+  /* Adjusted line height */
   font-size: 1rem;
   position: relative;
+  word-break: break-word;
+  /* Ensure long words break */
 }
 
 /* Remove margin-right from user bubble that was causing issues */
@@ -281,6 +287,8 @@ onMounted(() => {
 
 .message.assistant .bubble {
   background: #e0e6ed;
+  color: #1a202c;
+  /* Added text color for light mode */
 }
 
 .message.assistant .reasoning-details {
@@ -296,6 +304,8 @@ onMounted(() => {
 
 .markdown-content {
   overflow-x: auto;
+  /* Added padding to prevent content touching bubble edge */
+  padding: 0;
 
   h1:first-child,
   h2:first-child,
@@ -306,28 +316,16 @@ onMounted(() => {
     margin-top: 0.5em;
   }
 
-  .katex-error {
-    color: var(--hc-red);
-  }
-
-  .katex {
-    font-size: 1.1em !important;
-    padding: 0.5em 0;
-    overflow-x: auto;
-  }
-
-  .katex-display {
-    margin: 1em 0 !important;
-  }
-
   h1,
   h2,
   h3,
   h4,
   h5,
   h6 {
-    margin: 1.25em 0 0.75em;
+    margin: 1.5em 0 0.8em;
+    /* Adjusted heading margins */
     font-weight: 600;
+    line-height: 1.3;
   }
 
   h1 {
@@ -346,6 +344,24 @@ onMounted(() => {
     font-size: 1.2em;
   }
 
+  p {
+    margin: 0.8em 0;
+    /* Added margin for paragraphs */
+  }
+
+  ul,
+  ol {
+    margin: 1em 0;
+    /* Added margin for lists */
+    padding-left: 1.5em;
+    /* Added padding for list bullets/numbers */
+  }
+
+  li {
+    margin-bottom: 0.5em;
+    /* Added margin between list items */
+  }
+
   strong {
     font-weight: 700;
   }
@@ -356,23 +372,45 @@ onMounted(() => {
 
   blockquote {
     border-left: 4px solid #3b82f6;
-    margin: 1em 0;
-    padding: 0.5em 1em;
-    background: #2d2d2d;
+    margin: 1.2em 0;
+    /* Adjusted margin */
+    padding: 0.8em 1.2em;
+    /* Adjusted padding */
+    background: #f0f4f8;
+    /* Light mode background */
     border-radius: 4px;
-    color: #a0a0a0;
+    color: #4a5568;
+    /* Light mode text color */
   }
 
   hr {
     border: none;
-    border-top: 1px solid #555768;
-    margin: 1.5em 0;
+    border-top: 1px solid #d1d5db;
+    /* Light mode border color */
+    margin: 2em 0;
+    /* Adjusted margin */
+  }
+
+  a {
+    color: #3b82f6;
+    /* Link color */
+    text-decoration: underline;
   }
 
   .footnote-ref {
     font-size: 0.8em;
     vertical-align: super;
     margin-left: 2px;
+  }
+
+  .footnotes {
+    border-top: 1px solid #d1d5db;
+    /* Light mode border color */
+    margin-top: 2em;
+    padding-top: 1em;
+    font-size: 0.9em;
+    color: #6b7280;
+    /* Light mode text color */
   }
 
   .footnotes ol {
@@ -385,94 +423,68 @@ onMounted(() => {
 
   table {
     border-collapse: collapse;
-    margin: 1em 0;
+    margin: 1.5em 0;
+    /* Adjusted margin */
     width: 100%;
-    background: #2d2d2d;
+    background: #ffffff;
+    /* Light mode background */
     border-radius: 6px;
     overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    /* Added subtle shadow */
 
     th,
     td {
-      padding: 0.75em 1em;
-      border: 1px solid #555768;
+      padding: 0.8em 1em;
+      /* Adjusted padding */
+      border: 1px solid #e5e7eb;
+      /* Light mode border color */
     }
 
     th {
-      background: #3b82f6;
-      color: white;
+      background: #eff6ff;
+      /* Light mode header background */
+      color: #1e40af;
+      /* Light mode header text color */
       font-weight: 600;
+      text-align: left;
     }
 
-    .math-display {
-      padding: 1em;
-      background: #2d2d2d;
-      border-radius: 4px;
-      margin: 1em 0;
-      overflow-x: auto;
-    }
-
-    .footnotes {
-      border-top: 1px solid #555768;
-      margin-top: 2em;
-      padding-top: 1em;
-      font-size: 0.9em;
-      color: #8e8e8e;
+    tr:nth-child(even) {
+      background-color: #f9fafb;
+      /* Zebra striping */
     }
   }
 
 
   code:not(.hljs) {
-    background: #1e1e1e;
+    background: #f3f4f6;
+    /* Light mode background */
     padding: 0.2em 0.4em;
     border-radius: 4px;
-    color: #f88b8b;
+    color: #b91c1c;
+    /* Light mode text color */
     font-size: 0.9em;
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   }
 
   pre {
-    background: #1e1e1e !important;
-    border: 1px solid #555768 !important;
-    border-radius: 8px;
-    padding: 1.25rem !important;
+    /* Removed direct pre styles here, handled by .code-container .pre-wrapper pre */
     margin: 1.5em 0;
+    /* Keep margin for pre outside .code-container */
 
     code {
       padding: 0 !important;
       color: #d4d4d4 !important;
+      background: none !important;
     }
   }
 }
 
 .hljs {
-  border: 1px solid #e5e7eb !important;
-  border-radius: 0.375rem;
-  padding: 1rem !important;
-  margin: 1rem 0;
+  /* Styles moved/refined within .code-container .pre-wrapper pre */
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   font-size: 0.875em;
-
-  background: #1e1e1e !important;
-  color: #d4d4d4 !important;
-
-  .hljs-keyword {
-    color: #569cd6;
-  }
-
-  .hljs-built_in {
-    color: #4ec9b0;
-  }
-
-  .hljs-string {
-    color: #ce9178;
-  }
-
-  .hljs-number {
-    color: #b5cea8;
-  }
-
-  .hljs-comment {
-    color: #6a9955;
-  }
 }
 
 pre,
@@ -480,24 +492,17 @@ code {
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
 }
 
-pre {
-  background: #1e1e1e;
-  border: 1px solid #363636 !important;
-  border-radius: 0.375rem;
-  padding: 1rem;
-  overflow-x: auto;
-}
+/* Removed redundant pre/code styles */
 
-code {
-  background: #f3f4f6;
-  padding: 0.2em 0.4em;
-  border-radius: 0.25em;
-  font-size: 0.9em;
-}
 
 .code-container {
   position: relative;
-  margin: 1em 0;
+  margin: 1.5em 0;
+  /* Adjusted margin */
+  border-radius: 8px;
+  /* Match pre border-radius */
+  overflow: hidden;
+  /* Ensure border-radius clips content */
 }
 
 .code-wrapper {
@@ -507,17 +512,25 @@ code {
 
 .pre-wrapper {
   position: relative;
+  width: 100%;
+  /* Ensure pre-wrapper takes full width */
 }
 
 .pre-wrapper pre {
   margin: 0;
-  padding: 0rem;
+  padding: 1.5rem 1rem 1rem 1rem !important;
+  /* Adjusted padding to make space for button */
   background: #1e1e1e !important;
-  border: 1px solid #555768 !important;
+  /* Dark background for code */
+  border: 1px solid #363636 !important;
+  /* Subtle border */
   border-radius: 8px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  transition: background 0.3s ease;
+  color: #d4d4d4 !important;
+  /* Code text color */
+  font-size: 0.875em;
+  line-height: 1.5;
 }
 
 .copy-button {
@@ -526,29 +539,31 @@ code {
   right: 8px;
   padding: 4px 8px;
   font-size: 0.8em;
-  background: linear-gradient(145deg, #338eda, #2d7bd2);
-  color: white;
+  background: rgba(255, 255, 255, 0.1);
+  /* Semi-transparent background */
+  color: rgba(255, 255, 255, 0.8);
+  /* Semi-transparent text */
   border: none;
   border-radius: 4px;
   cursor: pointer;
   z-index: 2;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
-  transition: transform 0.2s ease, background 0.2s ease;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
 .copy-button:hover {
-  background: linear-gradient(145deg, #2563eb, #1f5bb5);
-  transform: scale(1.05);
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+.copy-button:active {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .copy-button:focus {
   outline: 2px solid #ffffff;
+  outline-offset: 2px;
 }
 
-/* Ensure the pre element has enough top padding to avoid overlap */
-.code-container pre {
-  padding-top: 1em !important;
-}
 
 .cursor {
   color: #3b82f6;
@@ -576,46 +591,83 @@ code {
   cursor: help;
 }
 
+.katex {
+  font-size: 1.1em !important;
+  padding: 0.5em 0;
+  overflow-x: auto;
+}
+
+.katex-display {
+  margin: 1em 0 !important;
+}
+
+
 .reasoning-details {
   width: 100%;
   max-width: 90%;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
+  /* Adjusted margin */
   font-size: 0.9em;
   order: -1;
   /* Ensures it stays above the message bubble */
 }
 
-.reasoning-details summary {
+.reasoning-summary {
   cursor: pointer;
   padding: 6px 12px;
-  width: 300px;
-  background-color: #f0f4f8;
-  border-radius: 6px;
+  width: fit-content;
+  /* Make summary width fit content */
+  background-color: #e2e8f0;
+  /* Light mode background */
+  border-radius: 16px;
+  /* More rounded */
   color: #4a5568;
+  /* Light mode text color */
   font-size: 0.85em;
   user-select: none;
-  transition: background-color 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  display: inline-block;
+  /* Allow padding and margin */
+  margin-bottom: 4px;
+  /* Space between summary and steps */
 }
 
-.reasoning-details summary:hover {
-  background-color: #e2e8f0;
+.reasoning-summary:hover {
+  background-color: #cbd5e0;
+  /* Darker hover */
 }
 
 .reasoning-steps {
   background-color: #f8fafc;
+  /* Light mode background */
   border: 1px solid #e2e8f0;
+  /* Light mode border */
   border-radius: 6px;
   padding: 12px;
-  margin-top: 4px;
+  margin-top: 0;
+  /* Removed top margin */
   white-space: pre-wrap;
   font-family: monospace;
   font-size: 0.85em;
   color: #4a5568;
+  /* Light mode text color */
   overflow-x: auto;
   width: 100%;
+  box-sizing: border-box;
+  /* Include padding and border in width */
 }
 
 /* Dark mode styles */
+
+.dark .chat-wrapper::-webkit-scrollbar-track {
+  background: #252429 !important;
+}
+
+.dark .message.assistant .bubble {
+  background: #3c4858 !important;
+  color: #e2e8f0;
+  /* Dark mode text color */
+}
 
 .dark .reasoning-details summary {
   background-color: #2d3748;
@@ -632,71 +684,163 @@ code {
   color: #a0aec0;
 }
 
-.dark .chat-wrapper::-webkit-scrollbar-track {
-  background: #252429 !important;
+.dark .markdown-content {
+  blockquote {
+    background: #2d3748;
+    /* Dark mode background */
+    color: #a0aec0;
+    /* Dark mode text color */
+    border-left-color: #4299e1;
+    /* Dark mode border color */
+  }
+
+  hr {
+    border-top-color: #4a5568;
+    /* Dark mode border color */
+  }
+
+  a {
+    color: #63b3ed;
+    /* Dark mode link color */
+  }
+
+  .footnotes {
+    border-top-color: #4a5568;
+    /* Dark mode border color */
+    color: #a0aec0;
+    /* Dark mode text color */
+  }
+
+  table {
+    background: #1a202c;
+    /* Dark mode background */
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    /* Darker shadow */
+
+    th,
+    td {
+      border-color: #2d3748;
+      /* Dark mode border color */
+    }
+
+    th {
+      background: #2b6cb0;
+      /* Dark mode header background */
+      color: #e2e8f0;
+      /* Dark mode header text color */
+    }
+
+    tr:nth-child(even) {
+      background-color: #2d3748;
+      /* Dark mode zebra striping */
+    }
+  }
+
+  code:not(.hljs) {
+    background: #2d3748;
+    /* Dark mode background */
+    color: #fbd38d;
+    /* Dark mode text color */
+  }
+
+  /* HLJS styles are already dark mode compatible */
 }
 
-.dark .message.assistant .bubble {
-  background: #3c4858 !important;
-}
 
 /* Other display sizes styles */
 
 @media (max-width: 768px) {
   .chat-container {
     gap: 16px;
+    /* Adjusted gap */
     padding: 12px 8px;
   }
 
   .bubble {
-    max-width: 85%;
-    padding: 12px;
+    max-width: 95%;
+    /* Increased max-width on mobile */
+    padding: 12px 16px;
+    /* Adjusted padding */
     font-size: 0.95rem;
     line-height: 1.4;
   }
 
   .message {
-    margin-bottom: 4px;
+    margin-bottom: 0;
+    /* Rely on gap */
   }
 
   .reasoning-details {
     width: 100%;
+    max-width: 95%;
+    /* Match bubble max-width */
     font-size: 0.85em;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
+    /* Adjusted margin */
   }
 
-  .reasoning-details summary {
+  .reasoning-summary {
     width: auto;
-    padding: 4px 8px;
+    padding: 4px 10px;
+    /* Adjusted padding */
     font-size: 0.8em;
+  }
+
+  .reasoning-steps {
+    padding: 10px;
+    /* Adjusted padding */
   }
 
   /* Adjust heading sizes for mobile */
   .markdown-content {
     h1 {
-      font-size: 1.4em;
+      font-size: 1.5em;
+      /* Slightly smaller */
     }
 
     h2 {
-      font-size: 1.3em;
+      font-size: 1.4em;
     }
 
     h3 {
-      font-size: 1.2em;
+      font-size: 1.3em;
     }
 
     h4 {
-      font-size: 1.1em;
+      font-size: 1.2em;
     }
 
     pre {
-      padding: 0.75rem !important;
+      padding: 1rem 0.75rem 0.75rem 0.75rem !important;
+      /* Adjusted padding */
       font-size: 0.85em;
     }
 
     code:not(.hljs) {
       font-size: 0.85em;
     }
+
+    table {
+      font-size: 0.9em;
+
+      /* Smaller table text */
+      th,
+      td {
+        padding: 0.6em 0.8em;
+        /* Smaller table padding */
+      }
+    }
+  }
+
+  .copy-button {
+    top: 6px;
+    /* Adjusted position */
+    right: 6px;
+    /* Adjusted position */
+    padding: 3px 6px;
+    /* Smaller padding */
+    font-size: 0.75em;
+    /* Smaller font */
   }
 }
 
