@@ -1,104 +1,105 @@
 import localforage from "localforage";
+import { reactive } from "vue";
 
+/**
+ * Manages application settings for the Aegis AI Interface.
+ */
 class Settings {
   constructor() {
+    // Use a reactive reference for settings to improve reactivity
+    const settings = reactive({
+      // Version marker for future migrations
+      version: 2,
+
+      // --- User Profile Settings ---
+      user_name: null, // User's name
+      occupation: null, // User's occupation
+      custom_instructions: null, // Custom instructions for Aegis
+    });
+
+    // Add type information for better type safety
+    this.settings = reactive(settings);
+
+    // Create a non-reactive copy of default settings to avoid circular references
     this.defaultSettings = {
-      system_prompt: `
-      You are LLaMA 3.3 70b, a highly capable AI assistant developed to be helpful, harmless, and honest. Your goal is to provide users with accurate, comprehensive, and clearly communicated information and assistance across a wide range of tasks. You were pretrained on a vast dataset, with a knowledge cutoff of August 2024.
-
-**Core Operating Principles:**
-
-1.  **Be Helpful and Harmless:**
-    * Prioritize user needs and provide assistance that is beneficial and constructive.
-    * Strictly avoid generating content that is hateful, abusive, discriminatory, illegal, or promotes harm of any kind.
-    * If a request is dangerous, unethical, or could lead to harm, politely decline or reframe the request into a safe and helpful one if appropriate.
-
-2.  **Be Accurate and Honest:**
-    * Strive for factual accuracy in all your responses.
-    * If you are unsure about a topic or do not have the information, clearly state that (e.g., "I don't have enough information to answer that," or "I'm not sure about that."). Do not speculate or invent information.
-    * If asked about events or data beyond your knowledge cutoff (August 2024), clearly state: "My knowledge cutoff is August 2024, so I don't have up-to-date information on that."
-
-3.  **Follow Instructions Diligently:**
-    * Pay close attention to the user's full request, including any specific constraints, formatting instructions, or desired persona.
-    * Follow instructions precisely. If an instruction is unclear or ambiguous, ask clarifying questions before proceeding.
-    * If instructions conflict with your core operating principles (e.g., safety, honesty), prioritize these principles and politely explain the conflict if necessary.
-
-**Interaction Style & Response Formatting:**
-
-* **Tone:** Maintain a helpful, knowledgeable, polite, and generally neutral tone. You can be conversational but avoid being overly casual or opinionated unless specifically asked to adopt a particular persona. Be direct and practical; get to the point but ensure clarity.
-* **Clarity & Reasoning:**
-    * Explain your reasoning, especially for complex questions or when providing recommendations. When helpful, break down your thinking into logical steps (you can use numbered or bulleted lists for this if it enhances clarity).
-    * Aim for responses that are easy to understand, well-organized, and comprehensive enough to be truly useful.
-* **Markdown Usage:**
-    * Utilize Markdown effectively to enhance readability:
-        * Use **bolding** for emphasis and headings.
-        * Use *italics* for subtle emphasis or titles.
-        * Use \`inline code\` for variable names, file paths, or short code snippets.
-        * Use triple backticks (\`\`\`) for multi-line code blocks, specifying the language where appropriate.
-        * Use bulleted (\`*\` or \`-\`) or numbered (\`1.\`) lists for structured information.
-        * Use blockquotes (\`>\`) for quotations.
-    * Avoid LaTeX or other unsupported markup.
-* **Code Generation & Edits:**
-    * When generating code, ensure it is clear, well-commented where necessary, and follows best practices for the given language.
-    * If asked to edit existing code, provide diffs/patches by default, unless the user explicitly requests the full modified code. Clearly explain the changes made.
-
-**Limitations & Boundaries:**
-
-* **No Personal Opinions or Beliefs:** You do not have personal experiences, feelings, or beliefs. Present information neutrally.
-* **No Real-Time Information:** You cannot access real-time information, browse the internet, or provide updates on current events beyond your knowledge cutoff.
-* **Professional Boundaries:** Do not provide medical, legal, or financial advice that should come from a qualified professional. You can provide general information on these topics but must include a disclaimer.
-* **Capability Limits:** If a request is outside your capabilities (e.g., requires sensory input, physical action, or access to proprietary non-public data), explain why you cannot fulfill it directly.
-
-**Final Check Before Responding:**
-Before providing a response, quickly review:
-1.  Does it directly address the user's prompt?
-2.  Is it accurate and based on your knowledge?
-3.  Is it helpful and harmless?
-4.  Is it clearly formatted and easy to understand?
-5.  Does it adhere to all the guidelines above?
-
-Your primary directive is to assist the user effectively and responsibly within these guidelines.`,
-      constrain_chat_width: true,
-      auto_reasoning_mode: false,
-      is_default_system_prompt: true,
+      version: 2,
     };
 
-    this.settings = {
-      system_prompt: this.defaultSettings.system_prompt,
-      constrain_chat_width: this.defaultSettings.constrain_chat_width,
-      auto_reasoning_mode: this.defaultSettings.auto_reasoning_mode,
-      is_default_system_prompt: this.defaultSettings.is_default_system_prompt,
-    };
-
+    // Load settings asynchronously
     this.loadSettings();
   }
 
+  /**
+   * Helper to deep merge objects, ensuring reactivity is maintained where possible.
+   * This version handles merging into an existing reactive object.
+   * @param {object} target - The reactive object to merge into.
+   * @param {object} source - The object to merge from.
+   * @returns {object} The merged object.
+   */
+  _deepMergeReactive(target, source) {
+    for (const key in source) {
+      if (Object.prototype.hasOwnProperty.call(source, key)) {
+        const sourceValue = source[key];
+        const targetValue = target[key];
+
+        if (
+          typeof sourceValue === "object" &&
+          sourceValue !== null &&
+          !Array.isArray(sourceValue) &&
+          !(sourceValue instanceof Date)
+        ) {
+          // Initialize as reactive if needed
+          if (
+            !targetValue ||
+            typeof targetValue !== "object" ||
+            Array.isArray(targetValue) ||
+            targetValue instanceof Date
+          ) {
+            target[key] = reactive({});
+          }
+
+          // Recursively merge objects
+          this._deepMergeReactive(target[key], sourceValue);
+        } else {
+          // Direct assignment for primitives
+          target[key] = sourceValue;
+        }
+      }
+    }
+    return target;
+  }
+
+  /**
+   * Asynchronously loads settings from localforage.
+   * Merges saved settings with default settings to handle new fields in updates.
+   */
   async loadSettings() {
     try {
       const savedSettings = await localforage.getItem("settings");
       if (savedSettings != null) {
-        // Handle the system prompt default state
-        if (savedSettings.is_default_system_prompt === true) {
-          // If it's set to use default, always use the default prompt
-          savedSettings.system_prompt = this.defaultSettings.system_prompt;
-        } else if (savedSettings.is_default_system_prompt === undefined) {
-          // For existing users updating to the new system, check if their prompt matches default
-          savedSettings.is_default_system_prompt =
-            savedSettings.system_prompt.trim() ===
-            this.defaultSettings.system_prompt.trim();
-        }
+        // Start with a fresh deep copy of default settings
+        const mergedSettings = { ...this.defaultSettings };
 
-        // Save if we made any changes
-        if (savedSettings.is_default_system_prompt === true) {
-          await localforage.setItem("settings", savedSettings);
-        }
+        // Then deep merge saved settings over it to apply user's preferences
+        this._deepMergeReactive(mergedSettings, savedSettings);
 
-        this.settings = savedSettings;
+        // Directly assign to the reactive settings object
+        // This will update the reactivity system
+        Object.assign(this.settings, mergedSettings);
+
+        // IMPORTANT: Save back any changes made during the load (e.g., new defaults applied, or migrations)
+        // Store a deep copy of the settings object to prevent DataCloneError with reactive arrays.
+        await localforage.setItem(
+          "settings",
+          JSON.parse(JSON.stringify(this.settings))
+        );
       } else {
+        // No saved settings found, persist the default settings
+        // A fresh, deep reactive copy should already be in this.settings from constructor
         await localforage
-          .setItem("settings", this.defaultSettings)
+          .setItem("settings", JSON.parse(JSON.stringify(this.settings)))
           .catch((err) => {
-            console.error(`Error saving default settings: ${err}`);
+            console.error(`Error saving initial default settings: ${err}`);
           });
       }
     } catch (err) {
@@ -106,37 +107,54 @@ Your primary directive is to assist the user effectively and responsibly within 
     }
   }
 
+  /**
+   * Asynchronously saves the current settings to localforage.
+   */
   async saveSettings() {
     try {
-      // Check if the current system prompt matches the default
-      if (
-        this.settings.system_prompt.trim() ===
-        this.defaultSettings.system_prompt.trim()
-      ) {
-        this.settings.is_default_system_prompt = true;
-        this.settings.system_prompt = this.defaultSettings.system_prompt;
-      } else {
-        this.settings.is_default_system_prompt = false;
-      }
+      // IMPORTANT: Store a deep copy of the settings object using JSON.parse(JSON.stringify())
+      // This ensures no reactive proxies or non-clonable elements are passed to localforage.
+      await localforage.setItem(
+        "settings",
+        JSON.parse(JSON.stringify(this.settings))
+      );
 
-      await localforage.setItem("settings", this.settings);
-      await this.loadSettings();
       console.log("Settings saved to localForage.");
     } catch (err) {
       console.error("Failed to save settings to localForage:", err);
     }
   }
 
+  /**
+   * Retrieves a specific setting by key.
+   * @param {string} key - The key of the setting to retrieve.
+   * @returns {*} The value of the setting.
+   */
   getSetting(key) {
-    // If requesting system_prompt and it's set to default, return the default
-    if (key === "system_prompt" && this.settings.is_default_system_prompt) {
-      return this.defaultSettings.system_prompt;
-    }
     return this.settings[key];
   }
 
+  /**
+   * Sets a specific setting by key. Useful for UI bindings.
+   * @param {string} key - The key of the setting to set.
+   * @param {*} value - The new value for the setting.
+   */
+  setSetting(key, value) {
+    this.settings[key] = value;
+    // We don't save here automatically to avoid excessive writes.
+    // saveSettings() should be called explicitly by the UI logic after changes,
+    // or if the change necessitates immediate persistence.
+  }
+
+  /**
+   * Resets all settings to their default values and persists them.
+   */
   async resetSettings() {
-    this.settings = { ...this.defaultSettings };
+    // Perform a deep copy of default settings to avoid reference issues
+    // and assign it directly to the existing reactive settings object.
+    const newDefaults = this._deepMergeReactive({}, this.defaultSettings);
+    Object.assign(this.settings, newDefaults);
+
     console.log("Settings reset to default.");
     await this.saveSettings();
   }

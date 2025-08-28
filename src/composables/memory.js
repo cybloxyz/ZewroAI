@@ -25,7 +25,7 @@ export async function updateMemory(message, context) {
       // Ensure it's actually an array, default to empty if not
       if (!Array.isArray(global_memory_array)) {
         console.warn(
-          "Stored memory is not an array. Initializing with empty memory."
+          "Stored memory is not an array. Initializing with empty memory.",
         );
         global_memory_array = [];
       }
@@ -132,10 +132,10 @@ Example Output (No change):
         "API Error:",
         response.status,
         response.statusText,
-        errorBody
+        errorBody,
       );
       throw new Error(
-        `API request failed with status ${response.status}: ${errorBody}`
+        `API request failed with status ${response.status}: ${errorBody}`,
       );
     }
 
@@ -166,14 +166,14 @@ Example Output (No change):
       console.error(
         "Failed to parse AI response as JSON:",
         json_string,
-        parseError
+        parseError,
       );
       // Depending on how critical this is, you might throw an error
       // or log a warning and proceed without updating memory.
       // For reliability, let's throw an error if the AI output is unparsable JSON.
       throw new Error(
         "Received invalid JSON from AI for memory operations: " +
-          parseError.message
+          parseError.message,
       );
     }
 
@@ -214,7 +214,7 @@ Example Output (No change):
           facts_to_remove.forEach((fact) => {
             const trimmed_fact = fact.trim();
             updated_memory_array = updated_memory_array.filter(
-              (existing_fact) => existing_fact !== trimmed_fact
+              (existing_fact) => existing_fact !== trimmed_fact,
             );
           });
         }
@@ -234,7 +234,7 @@ Example Output (No change):
                 updated_memory_array[index] = new_fact;
               } else {
                 console.warn(
-                  `Attempted to modify non-existent fact: "${old_fact}"`
+                  `Attempted to modify non-existent fact: "${old_fact}"`,
                 );
               }
             }
@@ -242,7 +242,7 @@ Example Output (No change):
         }
 
         console.log(
-          `Memory operations: ${memory_operations.operation}, Added: ${memory_operations.facts?.add?.length || 0}, Removed: ${memory_operations.facts?.remove?.length || 0}, Modified: ${memory_operations.facts?.modify?.length || 0}`
+          `Memory operations: ${memory_operations.operation}, Added: ${memory_operations.facts?.add?.length || 0}, Removed: ${memory_operations.facts?.remove?.length || 0}, Modified: ${memory_operations.facts?.modify?.length || 0}`,
         );
         break;
       }
@@ -253,21 +253,21 @@ Example Output (No change):
 
       default:
         console.warn(
-          `Unknown memory operation received from AI: "${memory_operations.operation}". No memory changes applied.`
+          `Unknown memory operation received from AI: "${memory_operations.operation}". No memory changes applied.`,
         );
         break;
     }
 
     // Ensure uniqueness after operations (especially adds)
     updated_memory_array = Array.from(new Set(updated_memory_array)).filter(
-      (fact) => fact
+      (fact) => fact,
     ); // Filter out any empty strings
 
     // Save the updated memory array (as a JSON string)
     if (updated_memory_array.length > 0) {
       await localforage.setItem(
         MEMORY_STORAGE_KEY,
-        JSON.stringify(updated_memory_array)
+        JSON.stringify(updated_memory_array),
       );
       console.log("Global memory saved:", updated_memory_array);
     } else {
@@ -279,10 +279,10 @@ Example Output (No change):
     // Handle errors during API call, parsing, or processing
     console.error(
       "Error processing user message for global memory adjustments:",
-      err
+      err,
     );
     throw new Error(
-      "Error analyzing user message for global memory adjustments: " + err
+      "Error analyzing user message for global memory adjustments: " + err,
     );
   }
 }

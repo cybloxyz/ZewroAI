@@ -1,15 +1,16 @@
 # Aegis AI
 
-Aegis AI is an AI ChatBot that uses LLaMA 3.3 70b through [HackClub's free API](https://ai.hackclub.com).
+Aegis AI is an AI ChatBot that uses various models through [HackClub's free API](https://ai.hackclub.com).
 
 ## Features
 
 - Chat data is stored locally on your device. No data is stored on the internet.
 - Full Markdown Support (excluding math LaTex syntax).
 - Supports for multiple chats.
-- Detailed code-blocks, including syntax highlighting based on the language and a quick-copy button.
+- Detailed code-blocks, including syntax highlighting and a copy button.
 - Customizeable system prompt.
 - Cross-chat memory (similar to ChatGPT's functionality).
+- A custom-made Reasoning option (allows the AI to think deeply, critiquing their own thoughts) with visible "thoughts".
 
 ## Todo
 
@@ -25,11 +26,16 @@ Please suggest more ideas in the Issues tab.
 
 ### V2
 
-- [x] ~~Reasoning/Chain-of-Thought functionality~~
+- [x] ~~Basic Reasoning/Chain-of-Thought functionality~~
 
 ### V3
 
-- [ ] More Agentic Thinking (extension of reasoning/chain of thought)
+- [ ] Improved Reasoning/Chain-of-Thought
+- [ ] Canvas/Code Panel
+
+### V4
+
+- [ ] Tree-of-Thought (Split a reasoning thought into multiple seperate Chain-of-Thoughts, each running asynchronously)
 
 ## VSCode Setup
 
@@ -40,6 +46,12 @@ Please suggest more ideas in the Issues tab.
 ```sh
 git clone https://github.com/Mostlime12195/Quasar-AI-Chatbot.git
 cd quasar-ai-chatbot
+```
+
+### Install Dependencies
+
+```sh
+npm install
 ```
 
 ### Compile and Hot-Reload for Development

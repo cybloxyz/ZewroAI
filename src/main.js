@@ -1,6 +1,11 @@
-import './assets/main.css'
+import { createApp } from "vue";
+import App from "./App.vue";
 
-import { createApp } from 'vue'
-import App from './App.vue'
+// Create app with global size configuration
+const app = createApp(App);
+app.config.globalProperties.$ELEMENT = {
+  size: "small",
+  zIndex: 2000,
+};
 
-createApp(App).mount('#app')
+app.mount("#app");

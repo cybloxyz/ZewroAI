@@ -1,861 +1,666 @@
 <script setup>
-import { onMounted, ref } from 'vue'
-import hljs from 'highlight.js'
-import 'highlight.js/styles/github-dark.css'
-import MarkdownIt from 'markdown-it'
-import markdownItFootnote from 'markdown-it-footnote'
-import markdownItTaskLists from 'markdown-it-task-lists'
+import { onMounted, ref, watch, nextTick, computed, reactive } from "vue";
+import hljs from "highlight.js";
+import "highlight.js/styles/github-dark.css";
+import MarkdownIt from "markdown-it";
+import markdownItFootnote from "markdown-it-footnote";
+import markdownItTaskLists from "markdown-it-task-lists";
+import WelcomeOverlay from "./WelcomeOverlay.vue";
+// Replace Element Plus icons with Phosphor Icons
+import { PhDownloadSimple, PhCopy, PhSun } from "@phosphor-icons/vue";
 
-const props = defineProps(['currConvo', 'currMessages', 'isLoading', 'conversationTitle', 'triggerRerender'])
+const props = defineProps([
+  "currConvo",
+  "currMessages",
+  "isLoading",
+  "conversationTitle",
+  "showWelcome",
+]);
+const emit = defineEmits(["send-message", "set-message"]);
 
+const shouldShowWelcome = computed(() => {
+  return (
+    props.showWelcome &&
+    (!props.currMessages || props.currMessages.length === 0)
+  );
+});
+
+const langExtMap = {
+  python: "py",
+  javascript: "js",
+  typescript: "ts",
+  html: "html",
+  css: "css",
+  vue: "vue",
+  json: "json",
+  markdown: "md",
+  shell: "sh",
+  bash: "sh",
+  java: "java",
+  c: "c",
+  cpp: "cpp",
+  csharp: "cs",
+  go: "go",
+  rust: "rs",
+  ruby: "rb",
+  php: "php",
+  sql: "sql",
+  xml: "xml",
+  yaml: "yml",
+};
+
+// --- 2. Code Block Redesign: Use markdown-it's fence rule for full control ---
 const md = new MarkdownIt({
   html: true,
   linkify: true,
   typographer: true,
-  highlight: (str, lang) => {
-    if (lang && hljs.getLanguage(lang)) {
-      try {
-        return hljs.highlight(str, { language: lang }).value
-      } catch (_) { }
-      return ''
-    }
-  },
 })
   .use(markdownItFootnote)
-  .use(markdownItTaskLists, { enabled: true, label: true, bulletMarker: '-' })
+  .use(markdownItTaskLists, { enabled: true, label: true, bulletMarker: "-" });
 
-// Safely render full Markdown (with code block handling).
-function safeRender(content) {
-  try {
-    let rendered = md.render(content)
-    rendered = rendered.replace(/<pre>([\s\S]*?)<\/pre>/g, (match, codeBlock) => {
-      const innerCode = codeBlock.replace(/^<code[^>]*>|<\/code>$/g, '')
-      return `
-<div class="code-container">
-  <div class="pre-wrapper">
-    <pre><code>${innerCode}</code></pre>
-    <button class="copy-button" onclick="copyCode(this)">Copy</button>
-  </div>
-</div>`
-    })
-    return rendered;
-  } catch (error) {
-    console.error("Markdown rendering error:", error)
-    return `<pre>${content}</pre>`
-  }
-}
+// Store original rule to fall back to
+const defaultFence =
+  md.renderer.rules.fence ||
+  function (tokens, idx, options, env, self) {
+    return self.renderToken(tokens, idx, options);
+  };
 
-function isChainOfThought(content) {
-  return content.includes('🤔 Let me think this through step by step');
-}
+// Override the fence rule to inject custom wrapper and header
+md.renderer.rules.fence = (tokens, idx, options, env, self) => {
+  const token = tokens[idx];
+  const code = token.content.trim();
+  const lang = token.info ? token.info.split(/(\s+)/g)[0] : "text";
+  const langDisplay = lang || "text";
 
-function extractReasoningSteps(content) {
-  if (!isChainOfThought(content)) return '';
-
-  // Get everything before SUMMARIZE, but remove the thinking emoji
-  return content
-    .split('### SUMMARIZE ###')[0]
-    .trim();
-}
-
-
-// Get only the final solution/summary
-function getSolutionOnly(content) {
-  if (!isChainOfThought(content)) return content;
-
-  // Return empty string while waiting for summary
-  if (!content.includes('### SUMMARIZE ###') && !content.includes('### SUMMARY ###')) {
-    return '...thinking...';
+  let highlightedCode;
+  if (lang && hljs.getLanguage(lang)) {
+    try {
+      highlightedCode = hljs.highlight(code, {
+        language: lang,
+        ignoreIllegals: true,
+      }).value;
+    } catch (__) {
+      highlightedCode = md.utils.escapeHtml(code);
+    }
+  } else {
+    highlightedCode = md.utils.escapeHtml(code);
   }
 
-  // Try to get the summary section
-  const summaryParts = content.split('### SUMMARY ###');
-  if (summaryParts.length > 1) {
-    return summaryParts[1].replace(/---+/g, '').trim();
-  }
+  // This structure prevents markdown-it from adding extra <p> tags and gives us full control.
+  return `
+  <div class="code-block-wrapper">
+    <div class="code-block-header">
+      <span class="code-language">${langDisplay}</span>
+      <div class="code-actions">
+        <button class="code-action-button" onclick="downloadCode(event.currentTarget, '${langDisplay}')" title="Download file">
+          <PhDownloadSimple />
+          <span>Download</span>
+        </button>
+        <button class="code-action-button" onclick="copyCode(event.currentTarget)" title="Copy code">
+          <PhCopy />
+          <span>Copy</span>
+        </button>
+      </div>
+    </div>
+  <pre><code class="hljs ${lang}">${highlightedCode}</code></pre>
+</div>`;
+};
 
-  // Fallback to SUMMARIZE section
-  const summarizeParts = content.split('### SUMMARIZE ###');
-  if (summarizeParts.length > 1) {
-    return summarizeParts[1].replace(/---+/g, '').trim();
-  }
+const liveReasoningTimers = reactive({});
+const timerIntervals = {};
 
-  // If no summary found, show thinking message
-  return '...thinking...';
+function formatDuration(ms) {
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
 }
 
-// Calculate thinking time based on stored duration or timestamps
-function getThinkingTime(message) {
-  if (!message.timestamp) return '< 1s';
+const isAtBottom = ref(true);
+const chatWrapper = ref(null);
+// Add timestamps and debug markers to messages for visualization
+const messages = computed(() => {
+  if (!props.currMessages) return [];
 
-  if (message.reasoningDuration) {
-    // Use stored duration if available
-    const seconds = Math.round(message.reasoningDuration / 1000);
-    return seconds < 60
-      ? `${seconds}s`
-      : `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
-  }
+  return props.currMessages.map((msg) => {
+    const isNew = !msg.timestamp || Date.now() - msg.timestamp < 5000;
 
-  // Fallback to completion timestamp if available
-  if (message.reasoningCompleted) {
-    const duration = new Date(message.reasoningCompleted) - new Date(message.timestamp);
-    const seconds = Math.round(duration / 1000);
-    return seconds < 60
-      ? `${seconds}s`
-      : `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
-  }
+    return { ...msg, isNew };
+  });
+});
 
-  // If neither is available (shouldn't happen), show current time difference
-  const thinkingTime = (new Date() - new Date(message.timestamp)) / 1000;
-  return thinkingTime < 60
-    ? `${Math.round(thinkingTime)}s`
-    : `${Math.round(thinkingTime / 60)}m ${Math.round(thinkingTime % 60)}s`;
-}
-
-const isAtBottom = ref(true)
-const userScrolling = ref(false)
-const chatWrapper = ref(null)
-const isAutoScrolling = ref(false)
-let scrollTimeout = null
-
-const onScroll = () => {
-  if (isAutoScrolling.value) return
-  userScrolling.value = true
-  clearTimeout(scrollTimeout)
-  scrollTimeout = setTimeout(() => {
-    userScrolling.value = false
-  }, 200)
-  const { scrollTop, scrollHeight, clientHeight } = chatWrapper.value
-  isAtBottom.value = scrollHeight - (scrollTop + clientHeight) < 10
-}
-
-const scrollToEnd = (behavior) => {
-  isAutoScrolling.value = true
+const scrollToEnd = (behavior = "smooth") => {
+  if (!chatWrapper.value) return;
   chatWrapper.value.scrollTo({
     top: chatWrapper.value.scrollHeight,
     behavior,
-  })
-  setTimeout(() => {
-    isAutoScrolling.value = false
-  }, 50)
-}
+  });
+};
 
-defineExpose({ onScroll, scrollToEnd, isAtBottom, userScrolling })
+const handleScroll = () => {
+  if (!chatWrapper.value) return;
+  isAtBottom.value =
+    Math.abs(
+      chatWrapper.value.scrollHeight -
+      chatWrapper.value.scrollTop -
+      chatWrapper.value.clientHeight,
+    ) < 10;
+};
 
-window.copyCode = function (button) {
-  const codeEl = button.parentElement.querySelector('pre code')
-  const text = codeEl ? codeEl.innerText : button.parentElement.querySelector('pre').innerText
-  navigator.clipboard.writeText(text).then(() => {
-    button.textContent = 'Copied!'
-    setTimeout(() => {
-      button.textContent = 'Copy'
-    }, 2000)
-  }).catch(err => {
-    console.error('Failed to copy text: ', err)
-  })
-}
+// Watch for changes in the messages array
+watch(
+  messages,
+  (newMessages) => {
+    if (isAtBottom.value) {
+      nextTick(() => scrollToEnd("smooth"));
+    }
+
+    // Process each message
+    newMessages.forEach((msg) => {
+      // Clear any existing timer for this message to prevent duplicates
+      if (timerIntervals[msg.id]) {
+        clearInterval(timerIntervals[msg.id]);
+        delete timerIntervals[msg.id];
+      }
+
+      // Handle assistant messages with reasoning
+      if (msg.role === "assistant" && msg.reasoning) {
+        // For completed messages, show the final duration
+        if (msg.complete) {
+          // If we already have a calculated duration, use it
+          if (msg.reasoningDuration) {
+            liveReasoningTimers[msg.id] =
+              `Thought for ${formatDuration(msg.reasoningDuration)}`;
+          }
+          // If we have start and end times, calculate the duration
+          else if (msg.reasoningStartTime && msg.reasoningEndTime) {
+            const duration =
+              msg.reasoningEndTime.getTime() - msg.reasoningStartTime.getTime();
+            liveReasoningTimers[msg.id] =
+              `Thought for ${formatDuration(duration)}`;
+          }
+          // If we only have a start time, but the message is complete,
+          // it means the message was completed before we could set the end time
+          else if (msg.reasoningStartTime) {
+            // This shouldn't happen in normal operation, but let's handle it
+            liveReasoningTimers[msg.id] = "Thought for a moment";
+          }
+          return;
+        }
+
+        // For incomplete messages that are still thinking
+        // Only start a timer if one doesn't already exist
+        if (!timerIntervals[msg.id]) {
+          const startTime = msg.reasoningStartTime || new Date();
+          timerIntervals[msg.id] = setInterval(() => {
+            const elapsed = new Date().getTime() - startTime.getTime();
+            liveReasoningTimers[msg.id] =
+              `Thinking for ${formatDuration(elapsed)}...`;
+          }, 100);
+        }
+      }
+    });
+
+    // Clean up timers for messages that no longer exist
+    const currentMessageIds = newMessages.map((msg) => msg.id);
+    Object.keys(timerIntervals).forEach((timerId) => {
+      if (!currentMessageIds.includes(timerId)) {
+        clearInterval(timerIntervals[timerId]);
+        delete timerIntervals[timerId];
+        delete liveReasoningTimers[timerId];
+      }
+    });
+  },
+  { deep: true, immediate: true },
+);
+
+watch(
+  () => props.currConvo,
+  (newConvo, oldConvo) => {
+    if (newConvo && newConvo !== oldConvo) {
+      // When conversation changes, scroll to bottom after next tick
+      nextTick(() => {
+        requestAnimationFrame(() => {
+          scrollToEnd("instant");
+        });
+      });
+    }
+  }
+);
 
 onMounted(() => {
-  scrollToEnd('instant')
-})
+  nextTick(() => scrollToEnd("instant"));
+});
+
+function copyCode(button) {
+  const codeEl = button
+    .closest(".code-block-wrapper")
+    .querySelector("pre code");
+  const text = codeEl.innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    const textEl = button.querySelector("span");
+    textEl.textContent = "Copied!";
+    button.classList.add("copied");
+    setTimeout(() => {
+      textEl.textContent = "Copy";
+      button.classList.remove("copied");
+    }, 2000);
+  });
+};
+
+function downloadCode(button, lang) {
+  const codeEl = button
+    .closest(".code-block-wrapper")
+    .querySelector("pre code");
+  const code = codeEl.innerText;
+  const extension = langExtMap[lang.toLowerCase()] || "txt";
+  const filename = `code-${Date.now()}.${extension}`;
+  const blob = new Blob([code], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+
+defineExpose({ scrollToEnd, isAtBottom });
 </script>
 
 <template>
-  <div class="chat-wrapper" ref="chatWrapper" @scroll.passive="onScroll">
+  <div class="chat-wrapper" ref="chatWrapper" @scroll="handleScroll">
     <div class="chat-container">
-      <div v-for="(message, idx) in currMessages" :key="message.id" class="message" :class="message.role">
-        <div class="message-wrapper">
-          <!-- Move details above the bubble -->
-          <details v-if="message.role === 'assistant' && isChainOfThought(message.content)" class="reasoning-details">
-            <summary class="reasoning-summary">
-              Reasoning process ({{ getThinkingTime(message) }})
-            </summary>
-            <div class="reasoning-steps">
-              {{ extractReasoningSteps(message.content) }}
-            </div>
-          </details>
+      <WelcomeOverlay v-if="shouldShowWelcome" @setMessage="(msg) => emit('set-message', msg)" />
+      <div class="messages-layer">
+        <template v-for="message in messages" :key="message.id">
+          <div class="message" :class="message.role">
+            <div class="message-content">
+              <!-- 1. Redesigned Reasoning Display -->
+              <details v-if="message.role === 'assistant' && message.reasoning" class="reasoning-details" open>
+                <summary class="reasoning-summary">
+                  <span class="reasoning-toggle-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256">
+                      <path fill="currentColor"
+                        d="m181.66 133.66l-80 80a8 8 0 0 1-11.32-11.32L164.69 128L90.34 53.66a8 8 0 0 1 11.32-11.32l80 80a8 8 0 0 1 0 11.32Z" />
+                    </svg>
+                  </span>
+                  <span class="reasoning-text">
+                    <span v-if="liveReasoningTimers[message.id]">{{
+                      liveReasoningTimers[message.id]
+                      }}</span>
+                    <span v-else-if="message.reasoningDuration > 0">Thought for
+                      {{ formatDuration(message.reasoningDuration) }}</span>
+                    <span v-else-if="
+                      message.reasoningStartTime && message.reasoningEndTime
+                    ">Thought for a moment</span>
+                    <span v-else-if="message.reasoning && message.complete">Thought for a moment</span>
+                    <span v-else>Reasoning</span>
+                  </span>
+                </summary>
+                <div class="reasoning-content-wrapper">
+                  <div class="reasoning-content markdown-content" v-html="md.render(message.reasoning)"></div>
+                </div>
+              </details>
 
-          <transition name="bubble-fade" appear>
-            <span class="bubble" :class="{ typing: !message.complete }" :key="message.id">
-              <div v-if="message.role == 'user'" :key="message.id + '-user'">{{ message.content }}</div>
-              <div class="markdown-content" v-else v-html="safeRender(getSolutionOnly(message.content))"
-                :key="message.id + '-assistant-' + triggerRerender">
-              </div>
-              <span v-if="!message.complete" class="cursor">｜</span>
-            </span>
-          </transition>
-        </div>
+              <span class="bubble">
+                <div v-if="message.role == 'user'">{{ message.content }}</div>
+                <div class="markdown-content" v-else v-html="md.render(message.content)"></div>
+                <span v-if="!message.complete && !message.reasoning" class="cursor">|</span>
+              </span>
+            </div>
+          </div>
+        </template>
       </div>
     </div>
   </div>
 </template>
 
 <style>
+/* Define CSS variables for this component */
 .chat-wrapper {
+  /* Bubble colors */
+  --bubble-user-bg: var(--primary);
+  --bubble-user-text: var(--primary-foreground);
+
+  /* Text colors for light mode */
+  --text-primary-light: var(--text-primary);
+  --text-secondary-light: var(--text-secondary);
+
+  /* Text colors for dark mode */
+  --text-primary-dark: var(--text-primary);
+  --text-secondary-dark: var(--text-secondary);
+
+  /* Reasoning border colors */
+  --reasoning-border-light: var(--border);
+  --reasoning-border-dark: var(--border);
+
+  /* Code block colors */
+  --code-bg: #0d1117;
+  --code-header-bg: #161b22;
+  --code-border: #30363d;
+  --code-text: #c9d1d9;
+  --code-action-text: #8b949e;
+  --code-action-hover-bg: rgba(173, 186, 199, 0.1);
+  --code-action-hover-text: #c9d1d9;
+
+  /* Base layout */
   flex: 1;
   overflow-y: auto;
-  overflow-x: hidden;
-  min-height: 0;
-  margin: 8px 0;
-  scrollbar-width: thin;
-  /* For Firefox */
-  -ms-overflow-style: none;
-  /* For IE and Edge */
-}
-
-/* Hide scrollbar for Chrome/Safari/Opera */
-.chat-wrapper::-webkit-scrollbar {
-  display: none;
+  position: relative;
+  padding-bottom: 120px;
+  /* Add padding for fixed message form */
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  scrollbar-gutter: stable both-edges;
 }
 
 .chat-container {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  /* Adjusted gap */
   width: 100%;
   max-width: 800px;
-  /* Match the main container width */
   margin: 0 auto;
-  padding: 16px 16px 16px 16px;
+  padding: 12px;
   box-sizing: border-box;
+  position: relative;
+  transition: all 0.3s cubic-bezier(.4, 1, .6, 1);
 }
 
 .message {
   display: flex;
   width: 100%;
-}
-
-.message-wrapper {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.bubble {
-  max-width: 90%;
-  padding: 14px 18px;
-  /* Adjusted padding */
-  border-radius: 20px;
-  /* Adjusted border-radius */
-  line-height: 1.6;
-  /* Adjusted line height */
-  font-size: 1rem;
+  max-width: 800px;
+  margin: 1.5rem auto;
   position: relative;
-  word-break: break-word;
-  /* Ensure long words break */
-}
-
-/* Remove margin-right from user bubble that was causing issues */
-.message.user .bubble {
-  background: #ec3750;
-  color: #ffffff;
-  white-space: pre-wrap;
-}
-
-::-webkit-scrollbar {
-  width: 8px !important;
-}
-
-::-webkit-scrollbar-track {
-  background: #f7f7f7 !important;
-  border-radius: 4px !important;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #338eda !important;
-  border-radius: 4px !important;
-}
-
-.chat-header {
-  text-align: center;
-}
-
-.chat-header h2 {
-  font-family: 'Inter', sans-serif;
-  font-weight: bold;
-  font-size: 1.4rem;
+  transition: all 0.3s cubic-bezier(.4, 1, .6, 1);
 }
 
 .message.user {
   justify-content: flex-end;
 }
 
-.message.user .message-wrapper {
+.message-content {
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  transition: all 0.3s cubic-bezier(.4, 1, .6, 1);
+}
+
+.message.user .message-content {
   align-items: flex-end;
+  max-width: 85%;
 }
 
-.message.assistant .bubble {
-  background: #e0e6ed;
-  color: #1a202c;
-  /* Added text color for light mode */
-}
-
-.message.assistant .reasoning-details {
-  margin-left: 0;
+.bubble {
+  padding: 12px 16px;
+  border-radius: 18px;
+  line-height: 1.5;
+  font-size: 1rem;
+  width: 100%;
+  transition: all 0.3s cubic-bezier(.4, 1, .6, 1);
 }
 
 .message.user .bubble {
-  background: #ec3750;
-  color: #ffffff;
-
+  background: var(--bubble-user-bg);
+  color: var(--bubble-user-text);
   white-space: pre-wrap;
+  border-bottom-right-radius: 4px;
+  margin-left: auto;
+  max-width: calc(800px * 0.85);
+  width: fit-content;
+  transition: all 0.3s cubic-bezier(.4, 1, .6, 1);
 }
 
-.markdown-content {
-  overflow-x: auto;
-  /* Added padding to prevent content touching bubble edge */
+.message.assistant .bubble {
   padding: 0;
-
-  h1:first-child,
-  h2:first-child,
-  h3:first-child,
-  h4:first-child,
-  h5:first-child,
-  h6:first-child {
-    margin-top: 0.5em;
-  }
-
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
-  h6 {
-    margin: 1.5em 0 0.8em;
-    /* Adjusted heading margins */
-    font-weight: 600;
-    line-height: 1.3;
-  }
-
-  h1 {
-    font-size: 1.8em;
-  }
-
-  h2 {
-    font-size: 1.6em;
-  }
-
-  h3 {
-    font-size: 1.4em;
-  }
-
-  h4 {
-    font-size: 1.2em;
-  }
-
-  p {
-    margin: 0.8em 0;
-    /* Added margin for paragraphs */
-  }
-
-  ul,
-  ol {
-    margin: 1em 0;
-    /* Added margin for lists */
-    padding-left: 1.5em;
-    /* Added padding for list bullets/numbers */
-  }
-
-  li {
-    margin-bottom: 0.5em;
-    /* Added margin between list items */
-  }
-
-  strong {
-    font-weight: 700;
-  }
-
-  em {
-    font-style: italic;
-  }
-
-  blockquote {
-    border-left: 4px solid #3b82f6;
-    margin: 1.2em 0;
-    /* Adjusted margin */
-    padding: 0.8em 1.2em;
-    /* Adjusted padding */
-    background: #f0f4f8;
-    /* Light mode background */
-    border-radius: 4px;
-    color: #4a5568;
-    /* Light mode text color */
-  }
-
-  hr {
-    border: none;
-    border-top: 1px solid #d1d5db;
-    /* Light mode border color */
-    margin: 2em 0;
-    /* Adjusted margin */
-  }
-
-  a {
-    color: #3b82f6;
-    /* Link color */
-    text-decoration: underline;
-  }
-
-  .footnote-ref {
-    font-size: 0.8em;
-    vertical-align: super;
-    margin-left: 2px;
-  }
-
-  .footnotes {
-    border-top: 1px solid #d1d5db;
-    /* Light mode border color */
-    margin-top: 2em;
-    padding-top: 1em;
-    font-size: 0.9em;
-    color: #6b7280;
-    /* Light mode text color */
-  }
-
-  .footnotes ol {
-    padding-left: 1.5em;
-  }
-
-  .footnotes li {
-    margin: 0.5em 0;
-  }
-
-  table {
-    border-collapse: collapse;
-    margin: 1.5em 0;
-    /* Adjusted margin */
-    width: 100%;
-    background: #ffffff;
-    /* Light mode background */
-    border-radius: 6px;
-    overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    /* Added subtle shadow */
-
-    th,
-    td {
-      padding: 0.8em 1em;
-      /* Adjusted padding */
-      border: 1px solid #e5e7eb;
-      /* Light mode border color */
-    }
-
-    th {
-      background: #eff6ff;
-      /* Light mode header background */
-      color: #1e40af;
-      /* Light mode header text color */
-      font-weight: 600;
-      text-align: left;
-    }
-
-    tr:nth-child(even) {
-      background-color: #f9fafb;
-      /* Zebra striping */
-    }
-  }
-
-
-  code:not(.hljs) {
-    background: #f3f4f6;
-    /* Light mode background */
-    padding: 0.2em 0.4em;
-    border-radius: 4px;
-    color: #b91c1c;
-    /* Light mode text color */
-    font-size: 0.9em;
-    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-  }
-
-  pre {
-    /* Removed direct pre styles here, handled by .code-container .pre-wrapper pre */
-    margin: 1.5em 0;
-    /* Keep margin for pre outside .code-container */
-
-    code {
-      padding: 0 !important;
-      color: #d4d4d4 !important;
-      background: none !important;
-    }
-  }
-}
-
-.hljs {
-  /* Styles moved/refined within .code-container .pre-wrapper pre */
-  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-  font-size: 0.875em;
-}
-
-pre,
-code {
-  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-}
-
-/* Removed redundant pre/code styles */
-
-
-.code-container {
-  position: relative;
-  margin: 1.5em 0;
-  /* Adjusted margin */
-  border-radius: 8px;
-  /* Match pre border-radius */
-  overflow: hidden;
-  /* Ensure border-radius clips content */
-}
-
-.code-wrapper {
-  display: flex;
-  align-items: flex-start;
-}
-
-.pre-wrapper {
-  position: relative;
+  color: var(--text-primary-light);
   width: 100%;
-  /* Ensure pre-wrapper takes full width */
+  max-width: 800px;
+  margin: 0 auto;
+  transition: all 0.3s cubic-bezier(.4, 1, .6, 1);
 }
 
-.pre-wrapper pre {
-  margin: 0;
-  padding: 1.5rem 1rem 1rem 1rem !important;
-  /* Adjusted padding to make space for button */
-  background: #1e1e1e !important;
-  /* Dark background for code */
-  border: 1px solid #363636 !important;
-  /* Subtle border */
+.dark .message.assistant .bubble {
+  color: var(--text-primary-dark);
+}
+
+/* --- 1. Reasoning Display Styling --- */
+.reasoning-details {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-bottom: 0.75rem;
+  order: -1;
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto 0.75rem auto;
+  transition: all 0.3s cubic-bezier(.4, 1, .6, 1);
+}
+
+.reasoning-summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-secondary-light);
+  font-size: 0.9em;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  user-select: none;
+}
+
+.dark .reasoning-summary {
+  color: var(--text-secondary-dark);
+}
+
+.reasoning-summary::-webkit-details-marker {
+  display: none;
+}
+
+.reasoning-toggle-icon {
+  transition: transform 0.2s ease-in-out;
+  display: flex;
+  align-items: center;
+  transform: rotate(0deg);
+}
+
+.reasoning-details[open] .reasoning-toggle-icon {
+  transform: rotate(90deg);
+}
+
+.reasoning-content-wrapper {
+  padding-left: 1.25rem;
+  border-left: 2px solid var(--reasoning-border-light);
+}
+
+.dark .reasoning-content-wrapper {
+  border-left-color: var(--reasoning-border-dark);
+}
+
+.reasoning-content {
+  color: var(--text-secondary-light);
+}
+
+.dark .reasoning-content {
+  color: var(--text-secondary-dark);
+}
+
+.reasoning-details:not([open]) .reasoning-content-wrapper {
+  display: none;
+}
+
+/* --- 2. Code Block Styling --- */
+.markdown-content .code-block-wrapper {
+  background-color: var(--code-bg);
+  border: 1px solid var(--code-border);
   border-radius: 8px;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  color: #d4d4d4 !important;
-  /* Code text color */
-  font-size: 0.875em;
-  line-height: 1.5;
+  margin: 1em 0;
+  overflow: hidden;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+  box-sizing: border-box;
+  transition: all 0.3s cubic-bezier(.4, 1, .6, 1);
 }
 
-.copy-button {
-  position: absolute;
-  top: 8px;
-  right: 8px;
+.code-block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: var(--code-header-bg);
+  padding: 8px 8px 8px 16px;
+  border-bottom: 1px solid var(--code-border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.code-language {
+  font-family: monospace;
+  font-size: 0.85em;
+  color: var(--code-action-text);
+  text-transform: lowercase;
+}
+
+.code-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.code-action-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--code-action-text);
   padding: 4px 8px;
   font-size: 0.8em;
-  background: rgba(255, 255, 255, 0.1);
-  /* Semi-transparent background */
-  color: rgba(255, 255, 255, 0.8);
-  /* Semi-transparent text */
-  border: none;
-  border-radius: 4px;
+  font-weight: 500;
   cursor: pointer;
-  z-index: 2;
-  transition: background 0.2s ease, color 0.2s ease;
+  transition: all 0.2s ease-in-out;
 }
 
-.copy-button:hover {
-  background: rgba(255, 255, 255, 0.2);
-  color: #ffffff;
+.code-action-button:hover {
+  background-color: var(--code-action-hover-bg);
+  color: var(--code-action-hover-text);
 }
 
-.copy-button:active {
-  background: rgba(255, 255, 255, 0.3);
+.code-action-button.copied {
+  color: #3fb950;
 }
 
-.copy-button:focus {
-  outline: 2px solid #ffffff;
-  outline-offset: 2px;
+.code-action-button svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  stroke-width: 2;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
+.code-block-wrapper pre {
+  margin: 0;
+  padding: 0;
+  overflow-x: auto;
+  /* Horizontal scroll only */
+}
+
+.code-block-wrapper pre code.hljs {
+  display: block;
+  padding: 16px;
+  background: transparent;
+  color: var(--code-text);
+  font-size: 0.9em;
+  line-height: 1.6;
+}
+
+/* Generic Markdown Content Styling */
+.markdown-content {
+  color: var(--text-primary-light);
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+  box-sizing: border-box;
+  transition: all 0.3s cubic-bezier(.4, 1, .6, 1);
+}
+
+.dark .markdown-content {
+  color: var(--text-primary-dark);
+}
+
+.markdown-content>*:first-child {
+  margin-top: 0;
+}
+
+.markdown-content>*:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3 {
+  border-bottom: 1px solid var(--reasoning-border-light);
+  padding-bottom: 0.3em;
+  margin-top: 1.5em;
+  margin-bottom: 1em;
+}
+
+.dark .markdown-content h1,
+.dark .markdown-content h2,
+.dark .markdown-content h3 {
+  border-bottom-color: var(--reasoning-border-dark);
+}
+
+.markdown-content p {
+  margin: 1em 0;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  margin: 1em 0;
+  padding-left: 2em;
+}
+
+.markdown-content blockquote {
+  border-left: 4px solid var(--reasoning-border-dark);
+  margin: 1.5em 0;
+  padding: 0.5em 1.2em;
+  background: var(--code-header-bg);
+  color: var(--code-action-text);
+  border-radius: 4px;
+}
+
+.markdown-content code:not(.hljs) {
+  background-color: var(--code-header-bg);
+  color: var(--code-text);
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
 
 .cursor {
-  color: #3b82f6;
-  animation: blink 1.2s ease infinite;
-  vertical-align: middle;
-  line-height: 1;
-  display: inline;
+  display: inline-block;
+  animation: blink 1s step-end infinite;
+  color: var(--text-primary-light);
+}
+
+.dark .cursor {
+  color: var(--text-primary-dark);
 }
 
 @keyframes blink {
 
-  0%,
-  100% {
+  from,
+  to {
     opacity: 1;
   }
 
   50% {
     opacity: 0;
   }
-}
-
-.katex-error {
-  color: var(--hc-red) !important;
-  border-bottom: 1px dashed #cc0000;
-  cursor: help;
-}
-
-.katex {
-  font-size: 1.1em !important;
-  padding: 0.5em 0;
-  overflow-x: auto;
-}
-
-.katex-display {
-  margin: 1em 0 !important;
-}
-
-
-.reasoning-details {
-  width: 100%;
-  max-width: 90%;
-  margin-bottom: 12px;
-  /* Adjusted margin */
-  font-size: 0.9em;
-  order: -1;
-  /* Ensures it stays above the message bubble */
-}
-
-.reasoning-summary {
-  cursor: pointer;
-  padding: 6px 12px;
-  width: fit-content;
-  /* Make summary width fit content */
-  background-color: #e2e8f0;
-  /* Light mode background */
-  border-radius: 16px;
-  /* More rounded */
-  color: #4a5568;
-  /* Light mode text color */
-  font-size: 0.85em;
-  user-select: none;
-  transition: background-color 0.2s ease, color 0.2s ease;
-  display: inline-block;
-  /* Allow padding and margin */
-  margin-bottom: 4px;
-  /* Space between summary and steps */
-}
-
-.reasoning-summary:hover {
-  background-color: #cbd5e0;
-  /* Darker hover */
-}
-
-.reasoning-steps {
-  background-color: #f8fafc;
-  /* Light mode background */
-  border: 1px solid #e2e8f0;
-  /* Light mode border */
-  border-radius: 6px;
-  padding: 12px;
-  margin-top: 0;
-  /* Removed top margin */
-  white-space: pre-wrap;
-  font-family: monospace;
-  font-size: 0.85em;
-  color: #4a5568;
-  /* Light mode text color */
-  overflow-x: auto;
-  width: 100%;
-  box-sizing: border-box;
-  /* Include padding and border in width */
-}
-
-/* Dark mode styles */
-
-.dark .chat-wrapper::-webkit-scrollbar-track {
-  background: #252429 !important;
-}
-
-.dark .message.assistant .bubble {
-  background: #3c4858 !important;
-  color: #e2e8f0;
-  /* Dark mode text color */
-}
-
-.dark .reasoning-details summary {
-  background-color: #2d3748;
-  color: #e2e8f0;
-}
-
-.dark .reasoning-details summary:hover {
-  background-color: #2c3440;
-}
-
-.dark .reasoning-steps {
-  background-color: #1a202c;
-  border-color: #2d3748;
-  color: #a0aec0;
-}
-
-.dark .markdown-content {
-  blockquote {
-    background: #2d3748;
-    /* Dark mode background */
-    color: #a0aec0;
-    /* Dark mode text color */
-    border-left-color: #4299e1;
-    /* Dark mode border color */
-  }
-
-  hr {
-    border-top-color: #4a5568;
-    /* Dark mode border color */
-  }
-
-  a {
-    color: #63b3ed;
-    /* Dark mode link color */
-  }
-
-  .footnotes {
-    border-top-color: #4a5568;
-    /* Dark mode border color */
-    color: #a0aec0;
-    /* Dark mode text color */
-  }
-
-  table {
-    background: #1a202c;
-    /* Dark mode background */
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-    /* Darker shadow */
-
-    th,
-    td {
-      border-color: #2d3748;
-      /* Dark mode border color */
-    }
-
-    th {
-      background: #2b6cb0;
-      /* Dark mode header background */
-      color: #e2e8f0;
-      /* Dark mode header text color */
-    }
-
-    tr:nth-child(even) {
-      background-color: #2d3748;
-      /* Dark mode zebra striping */
-    }
-  }
-
-  code:not(.hljs) {
-    background: #2d3748;
-    /* Dark mode background */
-    color: #fbd38d;
-    /* Dark mode text color */
-  }
-
-  /* HLJS styles are already dark mode compatible */
-}
-
-
-/* Other display sizes styles */
-
-@media (max-width: 768px) {
-  .chat-container {
-    gap: 16px;
-    /* Adjusted gap */
-    padding: 12px 8px;
-  }
-
-  .bubble {
-    max-width: 95%;
-    /* Increased max-width on mobile */
-    padding: 12px 16px;
-    /* Adjusted padding */
-    font-size: 0.95rem;
-    line-height: 1.4;
-  }
-
-  .message {
-    margin-bottom: 0;
-    /* Rely on gap */
-  }
-
-  .reasoning-details {
-    width: 100%;
-    max-width: 95%;
-    /* Match bubble max-width */
-    font-size: 0.85em;
-    margin-bottom: 8px;
-    /* Adjusted margin */
-  }
-
-  .reasoning-summary {
-    width: auto;
-    padding: 4px 10px;
-    /* Adjusted padding */
-    font-size: 0.8em;
-  }
-
-  .reasoning-steps {
-    padding: 10px;
-    /* Adjusted padding */
-  }
-
-  /* Adjust heading sizes for mobile */
-  .markdown-content {
-    h1 {
-      font-size: 1.5em;
-      /* Slightly smaller */
-    }
-
-    h2 {
-      font-size: 1.4em;
-    }
-
-    h3 {
-      font-size: 1.3em;
-    }
-
-    h4 {
-      font-size: 1.2em;
-    }
-
-    pre {
-      padding: 1rem 0.75rem 0.75rem 0.75rem !important;
-      /* Adjusted padding */
-      font-size: 0.85em;
-    }
-
-    code:not(.hljs) {
-      font-size: 0.85em;
-    }
-
-    table {
-      font-size: 0.9em;
-
-      /* Smaller table text */
-      th,
-      td {
-        padding: 0.6em 0.8em;
-        /* Smaller table padding */
-      }
-    }
-  }
-
-  .copy-button {
-    top: 6px;
-    /* Adjusted position */
-    right: 6px;
-    /* Adjusted position */
-    padding: 3px 6px;
-    /* Smaller padding */
-    font-size: 0.75em;
-    /* Smaller font */
-  }
-}
-
-.bubble-fade-enter-active,
-.bubble-fade-leave-active {
-  transition: opacity 0.35s cubic-bezier(.4, 1.6, .6, 1), transform 0.35s cubic-bezier(.4, 1.6, .6, 1);
-}
-
-.bubble-fade-enter-from {
-  opacity: 0;
-  transform: translateY(16px) scale(0.98);
-}
-
-.bubble-fade-enter-to {
-  opacity: 1;
-  transform: translateY(0) scale(1);
 }
 </style>

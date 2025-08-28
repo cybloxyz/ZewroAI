@@ -1,14 +1,15 @@
 <script setup>
-import { ref, nextTick, onMounted } from 'vue';
+import { ref, nextTick, onMounted, computed, reactive } from 'vue';
 import 'highlight.js/styles/github-dark.css';
 import { inject } from "@vercel/analytics"
 import { injectSpeedInsights } from '@vercel/speed-insights';
 import { useDark, useToggle } from "@vueuse/core";
 import localforage from 'localforage';
+import { DialogRoot, DialogContent, DialogTitle, DialogPortal, DialogOverlay } from 'reka-ui';
 
 import { createConversation, storeMessages, deleteConversation as deleteConv } from './composables/storeConversations'
 import { updateMemory } from './composables/memory';
-import { shouldUseReasoning, regularMsg, streamChainOfThought } from './composables/message'
+import { handleIncomingMessage } from './composables/message'
 import Settings from './composables/settings';
 
 
@@ -29,188 +30,312 @@ const toggleDark = useToggle(isDark);
 const messages = ref([]);
 const isLoading = ref(false);
 const controller = ref(new AbortController()); // Used to abort fetch requests
-const triggerRerender = ref(0); // Used to force re-rendering of the chat panel
-const inputMessage = ref('');
-const chatPanel = ref(null);
+const chatPanel = ref(null); // Reference to the ChatPanel component, used to be able to manually scroll down
 const currConvo = ref('');
 const conversationTitle = ref('');
 
-const autoReasoningMode = ref(false); // If true, chooses between reasoning and regular models automatically.
-const sidebarOpen = ref(window.innerWidth > 900); // Only enabled by default on larger screens, mobile users find it annoying to have to close the sidebar use the content.
+const sidebarOpen = ref(window.innerWidth > 900);
 const chatLoading = ref(false);
+const isTyping = ref(false);
+const isSettingsOpen = ref(false);
+const settingsInitialTab = ref('general'); // Controls which tab opens in settings panel
 
-function toggleSidebar() {
-  sidebarOpen.value = !sidebarOpen.value;
-}
+// Initialize the Settings composable reactively
+const settingsManager = reactive(new Settings());
 
-// Load settings (settings.js)
-const settingsManager = new Settings();
-
-// Loads settings on load
 onMounted(async () => {
   await settingsManager.loadSettings();
-  autoReasoningMode.value = settingsManager.settings.auto_reasoning_mode ?? true;
+  console.log("Settings loaded in onMounted:", settingsManager.settings);
+  // Make sure selected_model_id is set to a default if not already set
+  if (!settingsManager.settings.selected_model_id) {
+    settingsManager.settings.selected_model_id = "qwen/qwen3-32b"; // Default model ID
+  }
+  // Update the selected model name if not already set
+  if (!settingsManager.settings.selected_model_name) {
+    settingsManager.settings.selected_model_name = "Qwen 3 32B"; // Default model name
+  }
+  console.log("Selected model name set to:", settingsManager.settings.selected_model_name);
 });
 
-// Helper to generate unique IDs for messages
+/**
+ * Computed property to get the name of the currently selected model from settings.
+ * This will be displayed in the MessageForm.
+ */
+const selectedModelName = computed(() => {
+  return settingsManager.settings.selected_model_name || 'Loading...';
+});
+
+/**
+ * Computed property to get the ID of the currently selected model from settings.
+ * This will be used to highlight the selected model in the MessageForm.
+ */
+const selectedModelId = computed(() => {
+  return settingsManager.settings.selected_model_id;
+});
+
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
 }
 
-async function sendMessage(message, reasoningOverride) {
+/**
+ * Handles sending a message to the AI.
+ * Retrieves current API configuration from settingsManager.
+ * @param {string} message - The user's message.
+ */
+async function sendMessage(message) {
   if (!message.trim() || isLoading.value) return;
 
-  // Create a new controller for each message
   controller.value = new AbortController();
-  inputMessage.value = message;
-  updateMemory(message, messages);
+  isLoading.value = true;
+  isTyping.value = false;
 
-  const plainMessages = messages.value.map((msg) => ({
-    role: msg.role,
-    content: msg.content,
-    complete: msg.complete,
-  }));
+  const userPrompt = message;
+  // Note: updateMemory is commented out as it was part of the previous reasoning system
+  // and is not actively managing global_chatbot_memory in the current lean API interface.
+  // If true memory functionality is desired, it needs to be re-evaluated for this architecture.
+  // updateMemory(userPrompt, messages); 
 
-  // Add user message with unique id
-  const userMsg = {
+  // Exclude the last (empty) assistant message if it exists
+  const plainMessages = messages.value
+    .filter(msg => msg.complete)
+    .map(msg => ({
+      role: msg.role,
+      content: msg.content
+    }));
+
+  messages.value.push({
     id: generateId(),
     role: "user",
-    content: inputMessage.value,
+    content: userPrompt,
     timestamp: new Date(),
     complete: true,
-  };
-  messages.value.push(userMsg);
+  });
 
-  // Add assistant message with unique id
   const assistantMsg = {
     id: generateId(),
     role: "assistant",
+    reasoning: "",
     content: "",
     timestamp: new Date(),
     complete: false,
+    reasoningStartTime: null,
+    reasoningEndTime: null,
+    reasoningDuration: null,
+    error: false, // Add error flag
+    errorDetails: null // Add error details storage
   };
+
   messages.value.push(assistantMsg);
 
-  const promptText = inputMessage.value;
-  inputMessage.value = "";
-  isLoading.value = true;
-  triggerRerender.value++;
-  await nextTick();
-  chatPanel.value.scrollToEnd("smooth");
-
-  const global_memory = (await localforage.getItem("global_chatbot_memory")) || "";
-  let useReasoning;
-  if (reasoningOverride === true) {
-    useReasoning = '"true"';
-  } else if (autoReasoningMode.value) {
-    useReasoning = await shouldUseReasoning(promptText, plainMessages);
-  } else {
-    useReasoning = '"false"';
-  }
-  console.log("useReasoning:", useReasoning);
-
-  try {
-    if (useReasoning === "\"true\"") {
-      const startTime = new Date();
-      // Chain-of-thought: iterate the stream generator.
-      for await (const chunk of streamChainOfThought(
-        settingsManager.settings.system_prompt,
-        global_memory,
-        plainMessages,
-        promptText,
-        controller
-      )) {
-        // Update the last assistant message's content in-place
-        messages.value[messages.value.length - 1].content += chunk;
-        triggerRerender.value++;
-        await nextTick();
-        if (chatPanel.value.isAtBottom && !chatPanel.value.userScrolling) {
-          chatPanel.value.scrollToEnd("instant");
-        }
-      }
-      // Add completion time after reasoning is done
-      messages.value[messages.value.length - 1].reasoningCompleted = new Date();
-      messages.value[messages.value.length - 1].reasoningDuration = messages.value[messages.value.length - 1].reasoningCompleted - startTime;
-    } else {
-      // Regular message: read from a single API call.
-      const response = await regularMsg(
-        settingsManager.settings.system_prompt,
-        global_memory,
-        plainMessages,
-        promptText,
-        controller
-      );
-      // Use the async iterator interface for streaming chunks
-      for await (const chunk of response) {
-        if (chunk) {
-          messages.value[messages.value.length - 1].content += chunk;
-          triggerRerender.value++;
-          await nextTick();
-          if (chatPanel.value.isAtBottom && !chatPanel.value.userScrolling) {
-            chatPanel.value.scrollToEnd("instant");
-          }
-        }
-      }
-    }
-  } catch (error) {
-    if (error.name !== "AbortError") {
-      messages.value[messages.value.length - 1].content = "Error: " + error.message;
-    }
-  } finally {
-    messages.value[messages.value.length - 1].complete = true;
-    isLoading.value = false;
-    // Create or store conversation
-    if (messages.value.length === 2) {
-      currConvo.value = await createConversation(messages, new Date());
-    } else if (messages.value.length > 2) {
-      await storeMessages(currConvo.value, messages, new Date());
-    }
+  if (!currConvo.value) {
+    currConvo.value = await createConversation(messages.value, new Date());
     if (currConvo.value) {
       const convData = await localforage.getItem(`conversation_${currConvo.value}`);
       conversationTitle.value = convData?.title || "";
     }
-    triggerRerender.value++;
+  }
+
+  await nextTick();
+  // Use requestAnimationFrame for more reliable scrolling
+  requestAnimationFrame(() => {
+    chatPanel.value?.scrollToEnd("instant");
+  });
+
+  // Get current model details from the settingsManager (reactive instance)
+  const { availableModels } = await import('./composables/availableModels');
+  const selectedModelDetails = availableModels.find(model => model.id === settingsManager.settings.selected_model_id);
+  console.log("Selected model details:", selectedModelDetails);
+  console.log("Selected model ID:", settingsManager.settings.selected_model_id);
+
+  if (!selectedModelDetails) {
+    console.error("No model selected or model details not found. Aborting message send.");
+    assistantMsg.content = (assistantMsg.content ? assistantMsg.content + "\n\n" : "") + "Error: No AI model selected.";
+    assistantMsg.complete = true;
+    isLoading.value = false;
+    return;
+  }
+
+  // Update the selected model name in settings for the UI
+  settingsManager.settings.selected_model_name = selectedModelDetails.name;
+
+  const selected_model_id = selectedModelDetails.id;
+  const model_parameters = selectedModelDetails.extra_parameters || {}; // This object contains model parameters
+
+  try {
+    const streamGenerator = handleIncomingMessage(
+      userPrompt,
+      plainMessages,
+      controller.value, // Pass the controller's instance
+      selected_model_id,
+      model_parameters, // Pass the entire model_parameters object
+      settingsManager.settings, // Pass user settings
+      selectedModelDetails.extra_functions || [] // Pass available tool names
+    );
+
+    for await (const chunk of streamGenerator) {
+
+      // Process content - handle empty strings but not null/undefined
+      if (chunk.content !== null && chunk.content !== undefined) {
+        assistantMsg.content += chunk.content;
+
+        // Set reasoning end time when we first get content after reasoning started
+        if (
+          chunk.content &&
+          assistantMsg.reasoningStartTime !== null &&
+          assistantMsg.reasoningEndTime === null
+        ) {
+          assistantMsg.reasoningEndTime = new Date();
+        }
+      }
+
+      // Process reasoning - handle empty strings but not null/undefined
+      if (chunk.reasoning !== null && chunk.reasoning !== undefined) {
+        assistantMsg.reasoning += chunk.reasoning;
+
+        // Set reasoning start time if not set
+        if (assistantMsg.reasoningStartTime === null) {
+          assistantMsg.reasoningStartTime = new Date();
+        }
+      }
+
+      // Handle errors
+      if (chunk.error) {
+        assistantMsg.error = true;
+        assistantMsg.errorDetails = chunk.errorDetails;
+        if (chunk.errorDetails) {
+          assistantMsg.content += `
+[ERROR: ${chunk.errorDetails.message}]`;
+        }
+      }
+
+      // Update the messages array
+      messages.value[messages.value.length - 1] = { ...assistantMsg };
+
+      // Allow Vue to render updates before scrolling
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      if (chatPanel.value?.isAtBottom) {
+        chatPanel.value.scrollToEnd("smooth");
+      }
+    }
+
+  } catch (error) {
+    console.error('Error in stream processing:', error);
+    // Delete this entire catch block
+  } finally {
+    assistantMsg.complete = true;
+    isLoading.value = false;
+
+    // Calculate reasoning duration in the finally block
+    if (assistantMsg.reasoningStartTime !== null) {
+      const endTime = assistantMsg.reasoningEndTime !== null ? assistantMsg.reasoningEndTime : new Date();
+      assistantMsg.reasoningDuration = endTime.getTime() - assistantMsg.reasoningStartTime.getTime();
+    }
+
+    // Enhanced error handling in finally block
+    if (assistantMsg.complete && !assistantMsg.content && assistantMsg.errorDetails) {
+      assistantMsg.content = `
+[ERROR: ${assistantMsg.errorDetails.message}]`;
+      if (assistantMsg.errorDetails.status) {
+        assistantMsg.content += ` HTTP ${assistantMsg.errorDetails.status}`;
+      }
+    }
+
+    console.log('Final message before storage:', JSON.stringify(assistantMsg));
+    // Make sure we have a copy of the final message
+    messages.value[messages.value.length - 1] = { ...assistantMsg };
+    console.log('Messages array before storage:', JSON.stringify(messages.value));
+    await storeMessages(currConvo.value, messages.value, new Date());
     await nextTick();
+    // Use requestAnimationFrame for more reliable scrolling
+    requestAnimationFrame(() => {
+      chatPanel.value?.scrollToEnd("instant");
+    });
   }
 }
 
+/**
+ * Toggles the sidebar open/closed.
+ */
+function toggleSidebar() {
+  sidebarOpen.value = !sidebarOpen.value;
+}
+
+/**
+ * Changes the current conversation to the given ID.
+ * @param {string} id - The ID of the conversation to load.
+ */
 async function changeConversation(id) {
   chatLoading.value = true;
   messages.value = [];
   currConvo.value = id;
 
   const conv = await localforage.getItem(`conversation_${currConvo.value}`);
-  messages.value = conv && conv.messages ? conv.messages : [];
+  // --- START CHANGES HERE: Convert date strings back to Date objects ---
+  if (conv?.messages) {
+    messages.value = conv.messages.map(msg => {
+      if (msg.role === 'assistant') {
+        return {
+          ...msg,
+          // Convert ISO strings back to Date objects if they exist
+          reasoningStartTime: msg.reasoningStartTime ? new Date(msg.reasoningStartTime) : null,
+          reasoningEndTime: msg.reasoningEndTime ? new Date(msg.reasoningEndTime) : null,
+        };
+      }
+      return msg;
+    });
+  } else {
+    messages.value = [];
+  }
+  // --- END CHANGES HERE ---
+
   conversationTitle.value = conv?.title || '';
   chatLoading.value = false;
-  triggerRerender.value++;
+
+  // Ensure scroll to bottom happens after DOM update
   await nextTick();
-  chatPanel.value.scrollToEnd("instant");
+  // Use a more reliable approach to ensure scroll happens
+  requestAnimationFrame(() => {
+    chatPanel.value?.scrollToEnd("instant");
+  });
 }
 
+/**
+ * Deletes a conversation by its ID.
+ * @param {string} id - The ID of the conversation to delete.
+ */
 async function deleteConversation(id) {
   await deleteConv(id)
-  // Optional:
-  // If the current conversation is deleted, clear messages and currConvo,
-  // or switch to another conversation as desired.
   if (currConvo.value === id) {
     currConvo.value = '';
     messages.value = [];
     conversationTitle.value = '';
   }
-  // Force an update
-  triggerRerender.value++;
-  await nextTick();
-  chatPanel.value.scrollToEnd("smooth");
 }
 
+/**
+ * Starts a new blank conversation.
+ */
 async function newConversation() {
   currConvo.value = '';
   messages.value = [];
   conversationTitle.value = '';
+}
 
-  triggerRerender.value++;
-  await nextTick();
+/**\n * Handles model selection from the MessageForm component.\n * Updates the settings with the selected model.\n */
+function handleModelSelect(modelId, modelName) {
+  settingsManager.settings.selected_model_id = modelId;
+  settingsManager.settings.selected_model_name = modelName;  // Trigger a reactive update
+  settingsManager.saveSettings();
+}
+
+/**
+ * Opens the settings panel to a specific tab.
+ * @param {string} tabKey - The key of the tab to open (e.g., 'general', 'api').
+ */
+function openSettingsPanel(tabKey = 'general') {
+  settingsInitialTab.value = tabKey;
+  isSettingsOpen.value = true;
 }
 
 </script>
@@ -224,69 +349,50 @@ async function newConversation() {
       <AppSidebar :curr-convo="currConvo" :messages="messages" :is-open="sidebarOpen"
         @close-sidebar="sidebarOpen = false" @toggle-sidebar="toggleSidebar" @change-conversation="changeConversation"
         :is-dark="isDark" @delete-conversation="deleteConversation" @new-conversation="newConversation"
-        @reload-settings="settingsManager.loadSettings" @toggle-dark="toggleDark" />
+        @reload-settings="settingsManager.loadSettings" @open-settings="openSettingsPanel('general')" />
+      <!-- Opens to General tab -->
     </Suspense>
-    <SettingsPanel />
-    <!-- 
-      .main-container always fills the available space.
-      .main-content-inner centers and constrains the chat content for readability.
-      This ensures the chat panel's scrollbar is always at the window edge.
+    <!--
+      Restructured layout:
+      - app-container: Main flex container with sidebar
+      - main-container: Full width/height container for chat content
+      - ChatPanel: Takes full width with internal max-width constraint
+      - MessageForm: Fixed position at bottom, centered with dynamic width
     -->
     <div class="main-container" :class="{ 'sidebar-open': sidebarOpen }">
-      <div class="main-content-inner">
-        <Suspense>
-          <ChatPanel ref="chatPanel" :curr-convo="currConvo" :curr-messages="messages" :isLoading="isLoading"
-            :conversationTitle="conversationTitle" :trigger-rerender="triggerRerender" />
-        </Suspense>
-        <MessageForm :isLoading="isLoading" :autoReasoningMode="autoReasoningMode" @send-message="sendMessage"
-          @abort-controller="controller.abort()" />
-      </div>
+      <ChatPanel ref="chatPanel" :curr-convo="currConvo" :curr-messages="messages" :isLoading="isLoading"
+        :conversationTitle="conversationTitle" :show-welcome="!currConvo && !isTyping"
+        @set-message="text => $refs.messageForm.setMessage(text)" />
+      <MessageForm ref="messageForm" :isLoading="isLoading" :selected-model-name="selectedModelName"
+        :selected-model-id="selectedModelId" :on-model-select="handleModelSelect" @typing="isTyping = true"
+        @empty="isTyping = false" @send-message="sendMessage" @abort-controller="controller.abort()" />
     </div>
+    <DialogRoot v-model:open="isSettingsOpen">
+      <DialogPortal>
+        <DialogOverlay class="fixed inset-0 bg-black/25" />
+        <div class="fixed inset-0 overflow-y-auto">
+          <div class="flex min-h-full items-center justify-center p-4 text-center">
+            <DialogContent
+              class="w-full max-w-4xl transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all dark:bg-gray-800 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-top-[48%]">
+              <SettingsPanel :is-open="isSettingsOpen" :initial-tab="settingsInitialTab"
+                @close="isSettingsOpen = false; settingsInitialTab = 'general';"
+                @reload-settings="settingsManager.loadSettings" />
+            </DialogContent>
+          </div>
+        </div>
+      </DialogPortal>
+    </DialogRoot>
   </div>
 </template>
 
 <style>
-@font-face {
-  font-family: 'Phantom Sans';
-  src: url('https://assets.hackclub.com/fonts/Phantom_Sans_0.7/Regular.woff') format('woff'),
-    url('https://assets.hackclub.com/fonts/Phantom_Sans_0.7/Regular.woff2') format('woff2');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Phantom Sans';
-  src: url('https://assets.hackclub.com/fonts/Phantom_Sans_0.7/Italic.woff') format('woff'),
-    url('https://assets.hackclub.com/fonts/Phantom_Sans_0.7/Italic.woff2') format('woff2');
-  font-weight: normal;
-  font-style: italic;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Phantom Sans';
-  src: url('https://assets.hackclub.com/fonts/Phantom_Sans_0.7/Bold.woff') format('woff'),
-    url('https://assets.hackclub.com/fonts/Phantom_Sans_0.7/Bold.woff2') format('woff2');
-  font-weight: bold;
-  font-style: normal;
-  font-display: swap;
-}
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');
 
 a:hover {
   background-color: transparent;
 }
 
-:root {
-  --hc-font: 'Phantom Sans';
-  --spacing-4: 4px;
-  --spacing-8: 8px;
-  --spacing-12: 12px;
-  --spacing-16: 16px;
-  --spacing-24: 24px;
-  --border-radius: 12px;
-}
-
+/* Removed CSS variables as they are now in base.css */
 html,
 body,
 #app {
@@ -294,11 +400,10 @@ body,
   padding: 0;
   height: 100dvh;
   width: 100vw;
-  background: #FFFFFF;
-  color: #1f2d3d;
-  font-family: var(--hc-font);
-  overflow-x: hidden;
-  /* Prevents unwanted horizontal scrollbars */
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font);
+  overflow: hidden;
 }
 
 img {
@@ -312,17 +417,19 @@ img {
 button {
   background: transparent;
   border: none;
-  padding: 0;
+  padding: 10px;
   cursor: pointer;
   outline: none;
   border-radius: 12px;
+  text-align: center;
   transition: all 0.2s ease;
-  color: #121217;
+  color: var(--text-primary);
 }
 
 button:hover {
-  background-color: #8492a633;
+  background-color: var(--bg-tertiary);
 }
+
 
 .app-container {
   display: flex;
@@ -331,10 +438,12 @@ button:hover {
   max-width: 100vw;
   box-sizing: border-box;
   overflow: hidden;
-  /* Prevent any overflow */
+  background: var(--bg);
+  position: relative;
+  transition: all 0.3s cubic-bezier(.4, 1, .6, 1);
 }
 
-/* 
+/*
   .main-container fills the viewport height and available width.
   Uses flexbox to allow the chat panel to grow/shrink and keep the message form at the bottom.
 */
@@ -344,11 +453,11 @@ button:hover {
   flex: 1 1 0;
   min-width: 0;
   height: 100dvh;
-  /* Fill viewport height so chat panel can scroll independently */
-  transition: margin-left 0.3s cubic-bezier(.4, 1, .6, 1);
-  margin-left: 0;
-  box-sizing: border-box;
+  position: relative;
+  background: inherit;
+  width: 100%;
   overflow: hidden;
+  transition: margin-left 0.3s cubic-bezier(.4, 1, .6, 1);
 }
 
 /* Sidebar open shifts main content right by sidebar width (280px) */
@@ -358,82 +467,23 @@ button:hover {
   }
 }
 
-/* 
-  .main-content-inner is a flex column that fills the container height.
-  Ensures chat panel and message form are stacked vertically.
-*/
-.main-content-inner {
-  width: 100%;
-  max-width: 800px;
-  /* Arbitrary: 800px is a common readable width for chat */
-  margin: 0 auto;
-  padding: 0 8px;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 0;
-  min-width: 0;
-  height: 100%;
-  overflow: hidden;
+/* Update fade transition timing */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.12s ease-out;
 }
 
-/* On mobile, fill width and reduce padding */
-@media (max-width: 900px) {
-  .main-content-inner {
-    max-width: 100vw;
-    margin: 0;
-    padding: 0;
-  }
-
-  .app-container {
-    padding: 0;
-  }
-
-  #app {
-    padding: 0;
-  }
-}
-
-/* 
-  Ensure the chat panel (ChatPanel.vue's .chat-wrapper) is the only scrollable area.
-  The following styles should be in ChatPanel.vue, but are documented here for clarity:
-  - .chat-wrapper { flex: 1 1 0; overflow-y: auto; overflow-x: hidden; min-height: 0; }
-  This keeps the message form always visible at the bottom, and only the chat scrolls.
-*/
-
-header {
-  background: var(--hc-dark);
-  border-bottom: 2px solid var(--hc-red);
-  padding: 0px var(--spacing-16);
-  margin-bottom: var(--spacing-8);
-  text-align: center;
-}
-
-.disclaimer {
-  font-size: 0.75rem;
-  color: #3c4858;
-  margin: 0;
-  text-align: center;
-}
-
-#disclaimer {
-  margin-top: -8px;
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 
 /* Dark mode settings */
 
 .dark #app {
-  background: #121217;
+  background: var(--bg);
   scrollbar-color: #252429 #3c4858;
-  color: #E0E0E0;
-}
-
-.dark .disclaimer {
-  color: #8e8e8e;
-}
-
-.dark button {
-  color: #E0E0E0;
+  color: var(--text-primary);
 }
 
 /* Other display size styles */
@@ -463,12 +513,12 @@ header {
 
 .global-menu-toggle {
   position: fixed;
-  top: 8px;
-  left: 4px;
-  z-index: 1002;
+  z-index: 1800;
   background: transparent;
   border: none;
   box-shadow: none;
+  top: 8px;
+  left: 8px;
   width: 44px;
   height: 44px;
   border-radius: 8px;
@@ -477,7 +527,17 @@ header {
   justify-content: center;
   padding: 0;
   margin: 0;
-  transition: background 0.18s;
+  transition: all 0.18s, transform 0.2s;
+  cursor: pointer;
+}
+
+.global-menu-toggle:hover {
+  background: rgba(0, 0, 0, 0.1);
+  transform: scale(1.05);
+}
+
+.dark .global-menu-toggle:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .global-menu-toggle img {
@@ -489,5 +549,25 @@ header {
 
 .global-menu-toggle.dark img {
   filter: invert(1) brightness(1.2);
+}
+
+.app-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  z-index: 1001;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 16px;
+  background: transparent;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 </style>

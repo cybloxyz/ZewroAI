@@ -1,71 +1,180 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch, nextTick } from "vue";
+import { PopoverRoot, PopoverTrigger, PopoverContent } from "reka-ui";
+import { availableModels } from "../composables/availableModels";
 
+// Define component properties and emitted events
 const props = defineProps({
   isLoading: Boolean,
-  autoReasoningMode: { type: Boolean, default: true }
+  selectedModelName: {
+    // Prop to display the current model name
+    type: String,
+    default: "Default Model",
+  },
+  selectedModelId: {
+    type: String,
+    required: true,
+  },
+  onModelSelect: {
+    type: Function,
+    default: () => { },
+  },
 });
-const emit = defineEmits(['send-message', 'abort-controller']);
+const emit = defineEmits([
+  "send-message",
+  "abort-controller",
+  "typing",
+  "empty",
+]);
 
-const inputMessage = ref('');
-const reasoningOn = ref(false);
-const trimmedMessage = computed(() => inputMessage.value.trim()); // Used to check if the input is empty
+// --- Reactive State ---
+const inputMessage = ref("");
+const textareaRef = ref(null); // Ref for the textarea element
 
-function submitMessage() {
-  // Sends the message and the reasoning state to the parent component
-  emit('send-message', inputMessage.value, reasoningOn.value ? true : null);
-  inputMessage.value = ''; // Clear input text after sending
-}
+// Computed property to check if the input is empty (after trimming whitespace)
+const trimmedMessage = computed(() => inputMessage.value.trim());
 
-function handleClick() {
+// --- Event Handlers ---
+
+watch(inputMessage, (newValue) => {
+  if (newValue.trim()) {
+    emit("typing");
+  } else {
+    emit("empty");
+  }
+});
+
+/**
+ * Handles the main action button click.
+ * If loading, it aborts the request. Otherwise, it submits the message.
+ */
+function handleActionClick() {
   if (props.isLoading) {
-    emit('abort-controller');
-  } else {
+    emit("abort-controller");
+  } else if (trimmedMessage.value) {
     submitMessage();
   }
 }
 
-function handleEnterKey() {
-  if (window.innerWidth < 768) {
-    /*
-    # On mobile, there isn't any other way to make a new line, therefore
-    # we replace the enter key with a new line.
-    */
-    inputMessage.value += '\n';
-  } else {
+/**
+ * Handles the Enter key press on the textarea.
+ * On desktop (>= 768px), Enter submits the message.
+ * On mobile, Enter creates a new line, as Shift+Enter is often unavailable.
+ * @param {KeyboardEvent} event
+ */
+function handleEnterKey(event) {
+  if (window.innerWidth >= 768 && !event.shiftKey) {
+    event.preventDefault(); // Prevent default newline behavior on desktop
     submitMessage();
   }
+  // On mobile or with Shift key, allow the default behavior (newline).
 }
+
+// --- Core Logic ---
+
+/**
+ * Emits the message to the parent, then clears the input.
+ */
+async function submitMessage() {
+  emit("send-message", inputMessage.value);
+  inputMessage.value = "";
+}
+
+/**
+ * Watches the input message to automatically resize the textarea.
+ */
+watch(inputMessage, async () => {
+  // Wait for the DOM to update before calculating the new height
+  await nextTick();
+  if (textareaRef.value) {
+    // Temporarily set height to 'auto' to correctly calculate the new scrollHeight
+    textareaRef.value.style.height = "auto";
+    // Set the height to match the content, up to the max-height defined in CSS
+    textareaRef.value.style.height = `${textareaRef.value.scrollHeight}px`;
+  }
+});
+
+// --- Model Selection ---
+function selectModelFromModal(modelId) {
+  const selectedModel = availableModels.find((model) => model.id === modelId);
+  if (selectedModel && typeof props.onModelSelect === 'function') {
+    props.onModelSelect(modelId, selectedModel.name);
+  }
+}
+
+// --- Exposed Methods ---
+
+/**
+ * Allows the parent component to programmatically set the input message.
+ * @param {string} text - The message to set in the textarea.
+ */
+function setMessage(text) {
+  inputMessage.value = text;
+}
+
+// Expose the setMessage function to be called from the parent component
+defineExpose({ setMessage });
 </script>
 
 <template>
   <div class="input-section">
-    <div class="input-container">
-      <!-- Reasoning Toggle -->
-      <button type="button" class="reasoning-btn" :class="{ active: reasoningOn }" @click="reasoningOn = !reasoningOn"
-        :aria-pressed="reasoningOn.toString()" aria-label="Toggle reasoning">
-        <svg class="reasoning-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <path
-            d="M9 21h6v-2H9v2zm3-19a7 7 0 00-7 7c0 3.866 3.134 7 7 7s7-3.134 7-7a7 7 0 00-7-7zm-1 13h2v2h-2v-2zm1-11a5 5 0 00-5 5h10a5 5 0 00-5-5z" />
-          <path
-            d="M12 2C8.13 2 5 5.13 5 9c0 2.69 1.42 5.06 3.54 6.36L9 18h6l.46-2.64A6.978 6.978 0 0019 9c0-3.87-3.13-7-7-7zm0 2c2.76 0 5 2.24 5 5a5.002 5.002 0 01-4.44 4.95l-.56.03-.56-.03A5.002 5.002 0 017 9c0-2.76 2.24-5 5-5z" />
-        </svg>
-        <span>Reasoning</span>
-      </button>
+    <div class="input-area-wrapper">
+      <textarea ref="textareaRef" v-model="inputMessage" :disabled="isLoading" @keydown.enter="handleEnterKey"
+        placeholder="Type your message..." class="chat-textarea" rows="1"></textarea>
 
-      <!-- Message Input and Send/Stop Button -->
-      <div class="input-area-wrapper">
-        <textarea v-model="inputMessage" :disabled="isLoading" @keydown.enter.exact.prevent="handleEnterKey"
-          placeholder="Type your message..." class="chat-textarea"></textarea>
-        <button type="submit" class="send-btn" :disabled="!trimmedMessage && !isLoading" @click="handleClick"
-          :aria-label="isLoading ? 'Stop generation' : 'Send message'">
-          <!-- Send icon -->
-          <svg v-if="!isLoading" class="icon-send" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      <div class="input-actions">
+        <!-- CHANGE: Added container with relative positioning for proper popover placement -->
+        <div class="model-selector-wrapper">
+          <PopoverRoot>
+            <PopoverTrigger class="action-btn model-selector-btn"
+              :aria-label="`Change model, currently ${props.selectedModelName}`">
+              <span class="model-name-display">{{
+                props.selectedModelName
+                }}</span>
+              <svg class="dropdown-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </PopoverTrigger>
+
+            <PopoverContent class="model-selector-popover" side="top" align="start" :side-offset="8">
+              <div class="popover-content">
+                <ul class="model-list">
+                  <li v-for="model in availableModels" :key="model.id" class="model-list-item" :class="{
+                    selected:
+                      model.id ===
+                      props.selectedModelId,
+                  }" @click="
+                    () => {
+                      selectModelFromModal(model.id);
+                    }
+                  ">
+                    <div class="model-info">
+                      <strong>{{ model.name }}</strong>
+                    </div>
+                    <span v-if="
+                      model.id ===
+                      props.selectedModelId
+                    " class="selected-indicator">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                      </svg>
+                    </span>
+                  </li>
+                </ul>
+              </div>
+            </PopoverContent>
+          </PopoverRoot>
+        </div>
+
+        <button type="submit" class="action-btn send-btn" :disabled="!trimmedMessage && !isLoading"
+          @click="handleActionClick" :aria-label="isLoading ? 'Stop generation' : 'Send message'">
+          <svg v-if="!isLoading" class="icon-send" key="send" viewBox="0 0 24 24" fill="none" stroke="currentColor"
             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M22 2L11 13" />
             <polygon points="22 2 15 22 11 13 2 9 22 2" />
           </svg>
-          <!-- Stop icon -->
           <svg v-else class="icon-stop" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"
             stroke-linecap="round" stroke-linejoin="round">
             <rect x="7" y="7" width="10" height="10" rx="2" />
@@ -73,263 +182,230 @@ function handleEnterKey() {
         </button>
       </div>
     </div>
-    <!-- Disclaimer -->
-    <p class="disclaimer">AI-generated content may be inaccurate. Please verify facts.</p>
   </div>
 </template>
 
 <style scoped>
+/* --- LAYOUT & STRUCTURE --- */
 .input-section {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  max-width: 800px;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
   width: 100%;
+  max-width: 800px;
   margin: 0 auto;
-  padding: 0 16px;
+  padding: 8px 12px 0;
   box-sizing: border-box;
-  flex-shrink: 0;
-  /* Prevent shrinking */
-}
-
-.input-container {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.reasoning-btn {
-  align-self: flex-start;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 24px;
-  font-size: 1rem;
-  font-weight: 600;
-  background: var(--reason-bg);
-  color: var(--reason-text);
-  border: 2px solid var(--reason-border);
-  border-radius: 32px;
-  cursor: pointer;
-  transition: background 0.3s ease, transform 0.2s ease, border-color 0.3s ease;
-}
-
-.reasoning-btn .reasoning-icon {
-  width: 20px;
-  height: 20px;
-  fill: currentColor;
-}
-
-.reasoning-btn:hover {
-  transform: translateY(-2px);
-}
-
-.reasoning-btn.active {
-  background: var(--reason-active-bg);
-  border-color: var(--reason-active-border);
-  color: var(--reason-active-text);
+  z-index: 1000;
+  transition: all 0.3s cubic-bezier(.4, 1, .6, 1);
 }
 
 .input-area-wrapper {
   display: flex;
-  align-items: center;
-  background: var(--input-bg);
-  border: 1px solid var(--input-border);
-  border-radius: 36px;
-  padding: 10px 14px;
-  box-shadow: var(--input-shadow);
-  transition: box-shadow 0.3s ease, background 0.3s ease;
-}
-
-.input-area-wrapper:focus-within {
-  background: var(--input-focus-bg);
-  box-shadow: var(--input-focus-shadow);
+  flex-direction: column;
+  background-color: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 28px 28px 0 0;
+  padding: 8px;
+  box-shadow: var(--shadow-default);
+  position: relative;
+  z-index: 10;
 }
 
 .chat-textarea {
-  flex: 1;
-  min-height: 48px;
-  max-height: 160px;
-  resize: none;
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
   background: transparent;
   border: none;
-  padding: 12px;
+  resize: none;
+  color: var(--text-primary);
   font-size: 1rem;
-  line-height: 1.4;
-  color: var(--textarea-text);
-  transition: min-height 0.3s ease;
+  line-height: 1.5;
+  min-height: 24px;
+  max-height: 250px;
+  overflow-y: auto;
 }
 
-.chat-textarea::placeholder {
-  color: var(--textarea-placeholder);
+/* --- BUTTONS --- */
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    transform 0.15s ease;
 }
 
-.chat-textarea:focus {
-  outline: none;
-  min-height: 96px;
+.action-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
 }
 
-@media (max-width: 768px) {
-  .input-section {
-    padding: 0 4px;
-    margin-bottom: 4px;
-    /* Add small margin at bottom */
-  }
-
-  .reasoning-btn {
-    padding: 8px 16px;
-    font-size: 0.9rem;
-  }
-
-  .reasoning-btn .reasoning-icon {
-    width: 16px;
-    height: 16px;
-  }
-
-  .input-area-wrapper {
-    padding: 8px 12px;
-    margin: 0 4px;
-    /* Add small margin to prevent touching edges */
-  }
-
-  .chat-textarea {
-    height: 44px;
-    min-height: 44px;
-    padding: 8px;
-    font-size: 0.95rem;
-    line-height: 1.3;
-  }
-
-  .chat-textarea:focus {
-    min-height: 80px;
-  }
-
-  .send-btn {
-    width: 40px;
-    height: 40px;
-    margin-left: 8px;
-  }
-
-  .icon-send,
-  .icon-stop {
-    width: 20px;
-    height: 20px;
-  }
-
-  .disclaimer {
-    font-size: 0.75rem;
-    margin: 6px 0;
-  }
+.model-selector-btn {
+  gap: 10px;
+  padding: 10px 16px;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--btn-model-selector-text);
+  border-radius: 10px;
+  white-space: nowrap;
+  align-items: center;
 }
 
-.icon-send {
-  width: 24px;
-  height: 24px;
-  fill: none;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+.model-selector-btn:hover {
+  background-color: var(--btn-model-selector-bg);
 }
 
-.icon-stop {
-  width: 24px;
-  height: 24px;
+.model-name-display {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dropdown-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 }
 
 .send-btn {
-  flex: 0 0 auto;
-  width: 48px;
-  height: 48px;
-  margin-left: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--send-bg);
-  border: none;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  cursor: pointer;
-  transition: background 0.3s ease, transform 0.2s ease;
+  background-color: var(--btn-send-bg);
+  color: var(--btn-send-text);
+  flex-shrink: 0;
+}
+
+.send-btn .icon-send,
+.send-btn .icon-stop {
+  width: 22px;
+  height: 22px;
+}
+
+.send-btn:hover:not(:disabled) {
+  background-color: var(--btn-send-hover-bg);
 }
 
 .send-btn:disabled {
-  background: var(--send-disabled);
+  background-color: var(--btn-send-disabled-bg);
   cursor: not-allowed;
   transform: none;
+}
 
-  .icon-send {
-    stroke: currentColor;
+.send-btn:disabled .icon-send {
+  stroke: var(--btn-send-text);
+  opacity: 0.7;
+}
+
+.input-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 4px 0;
+  gap: 8px;
+}
+
+/* --- MODEL SELECTOR POPOVER --- */
+/* CHANGE: Added wrapper with relative positioning */
+.model-selector-wrapper {
+  position: relative;
+}
+
+.model-selector-btn {
+  position: relative;
+  z-index: 1999;
+}
+
+.model-list {
+  list-style: none;
+  padding: 16px 0px;
+  margin: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable both-edges;
+  background: var(--popover-bg);
+  border-radius: 24px;
+}
+
+.model-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 12px;
+  text-align: left;
+  background: none;
+  color: var(--popover-list-item-text);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+  font-size: 0.95em;
+  border-radius: 8px;
+  margin-bottom: 4px;
+}
+
+.model-list-item:hover {
+  background-color: var(--popover-list-item-bg-hover);
+}
+
+.model-list-item.selected {
+  background-color: var(--popover-list-item-selected-bg);
+  color: var(--popover-list-item-selected-text);
+  font-weight: 500;
+}
+
+.model-info strong {
+  display: block;
+  font-size: 1em;
+}
+
+.selected-indicator {
+  color: var(--primary-foreground);
+  flex-shrink: 0;
+  margin-left: 12px;
+  transform: translateY(3px);
+}
+
+.selected-indicator svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Animation for popover */
+@keyframes popIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
   }
 
-  .icon-stop {
-    fill: currentColor;
-    stroke: currentColor;
-  }
-
-}
-
-.send-btn:not(:disabled) {
-
-  .icon-send {
-    stroke: #E0E0E0;
-  }
-
-  .icon-stop {
-    fill: #E0E0E0;
-    stroke: #E0E0E0;
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
   }
 }
 
-.send-btn:not(:disabled):hover {
-  background: var(--send-hover);
-  transform: scale(1.1);
+/* Ensure MessageForm stays at the bottom */
+.message-form {
+  width: 100%;
+  background: none;
+  flex-shrink: 0;
+  padding: 8px 0;
+  margin: 0;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
 }
 
-.disclaimer {
-  margin: 8px 0 8px;
-  font-size: 0.8rem;
-  color: var(--disclaimer-text);
-  text-align: center;
-}
-
-/* Light Mode */
-.input-section {
-  --reason-bg: #f5f5f5;
-  --reason-text: #333333;
-  --reason-border: #bbbbbb;
-  --reason-active-bg: #ec3750;
-  --reason-active-border: #ec3750;
-  --reason-active-text: #ffffff;
-  --input-bg: #f2f2f7;
-  --input-border: #dddddd;
-  --input-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  --input-focus-bg: #ffffff;
-  --input-focus-shadow: 0 0 0 3px rgba(60, 125, 255, 0.2);
-  --textarea-text: #333333;
-  --textarea-placeholder: #888888;
-  --send-bg: #3c7dff;
-  --send-hover: #335fc4;
-  --send-disabled: #cccccc;
-  --disclaimer-text: #555555;
-}
-
-/* Dark Mode */
-.dark .input-section {
-  --reason-bg: #2a2e3d;
-  --reason-text: #e0e6ed;
-  --reason-border: #4a4e5c;
-  --reason-active-bg: #ec3750;
-  --reason-active-border: #ec3750;
-  --reason-active-text: #ffffff;
-  --input-bg: #1e2230;
-  --input-border: transparent;
-  --input-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
-  --input-focus-bg: #272b3b;
-  --input-focus-shadow: 0 0 0 3px rgba(60, 125, 255, 0.3);
-  --textarea-text: #e0e6ed;
-  --textarea-placeholder: #888888;
-  --send-bg: #3c7dff;
-  --send-hover: #2d63d0;
-  --send-disabled: #555555;
-  --disclaimer-text: #999999;
+/* Adjust message form position when sidebar is open */
+@media (min-width: 900px) {
+  .sidebar-open .input-section {
+    left: 280px;
+    right: 0;
+    width: calc(100% - 280px);
+    transition: all 0.3s cubic-bezier(.4, 1, .6, 1);
+  }
 }
 </style>

@@ -1,13 +1,25 @@
 <script setup>
-import { ref, onBeforeUnmount, onMounted, nextTick } from 'vue';
-import localforage from 'localforage';
-import { emitter } from '@/emitter';
+import { ref, onBeforeUnmount, onMounted, nextTick } from "vue";
+import localforage from "localforage";
+import { emitter } from "@/emitter";
+import { DropdownMenuRoot, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "reka-ui";
+import SettingsPanel from "./SettingsPanel.vue";
 
-const emit = defineEmits(['changeConversation', 'deleteConversation', 'newConversation', 'reloadSettings', 'toggleDark', 'closeSidebar']);
-const props = defineProps(['currConvo', 'messages', 'isDark', 'isOpen']);
+const emit = defineEmits([
+  "changeConversation",
+  "deleteConversation",
+  "newConversation",
+  "reloadSettings",
+  "toggleDark",
+  "closeSidebar",
+  "openSettings",
+]);
+const props = defineProps(["currConvo", "messages", "isDark", "isOpen"]);
 
 const metadata = ref([]);
-const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1200);
+const windowWidth = ref(
+  typeof window !== "undefined" ? window.innerWidth : 1200,
+);
 const conversationListRef = ref(null);
 
 function handleResize() {
@@ -15,34 +27,29 @@ function handleResize() {
 }
 
 onMounted(() => {
-  window.addEventListener('resize', handleResize);
+  window.addEventListener("resize", handleResize);
   handleResize();
 });
 
 onBeforeUnmount(() => {
-  window.removeEventListener('resize', handleResize);
+  window.removeEventListener("resize", handleResize);
 });
 
 async function updateConversations() {
   const stored = await localforage.getItem("conversations_metadata");
   metadata.value = stored || [];
-
-  await nextTick();
-  if (conversationListRef.value) {
-    conversationListRef.value.scrollTop = -conversationListRef.value.scrollHeight;
-  }
 }
 
-updateConversations() // Initial load
+updateConversations(); // Initial load
 
-emitter.on('updateConversations', updateConversations);
+emitter.on("updateConversations", updateConversations);
 
 onBeforeUnmount(() => {
-  emitter.off('updateConversations', updateConversations);
+  emitter.off("updateConversations", updateConversations);
 });
 
 function closeSidebar() {
-  emit('closeSidebar');
+  emit("closeSidebar");
 }
 </script>
 
@@ -52,13 +59,11 @@ function closeSidebar() {
     <div :class="['sidebar', { active: props.isOpen }]">
       <div class="sidebar-header">
         <span class="sidebar-title">Chats</span>
-        <button class="dark-toggle" @click="$emit('toggleDark')" aria-label="Toggle light/dark mode">
-          <img v-if="isDark" src="@/assets/dark.svg" width="28" height="28" alt="Dark mode" />
-          <img v-else src="@/assets/light.svg" width="28" height="28" alt="Light mode" />
+        <button class="settings-button" aria-label="Open settings" @click="$emit('openSettings')">
+          <img src="@/assets/settings.svg" width="28" height="28" alt="Settings" />
         </button>
       </div>
       <button id="new-chat-button" class="new-chat-btn" @click="$emit('newConversation')">
-        <img src="@/assets/new-chat.svg" width="20" height="20" alt="New Chat" />
         <span>New Chat</span>
       </button>
       <div class="main-content">
@@ -70,7 +75,7 @@ function closeSidebar() {
             </button>
             <button class="delete-button no-hover" @click.stop="$emit('deleteConversation', data.id)"
               aria-label="Delete chat">
-              <img src="@/assets/delete.svg" width="16" height="16" alt="delete conversation">
+              <img src="@/assets/delete.svg" width="16" height="16" alt="delete conversation" />
             </button>
           </div>
         </div>
@@ -80,8 +85,6 @@ function closeSidebar() {
 </template>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Karla:ital,wght@0,200..800;1,200..800&family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&family=Noticia+Text:ital,wght@0,400;0,700;1,400;1,700&family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap');
-
 .sidebar {
   position: fixed;
   left: 0;
@@ -90,81 +93,35 @@ function closeSidebar() {
   width: 280px;
   max-width: 90vw;
   z-index: 1001;
-  background: #f8f9fa;
-  color: #343a40;
-  border-right: 1px solid #dee2e6;
+  background: var(--surface);
+  color: var(--text-primary);
+  border-right: 1px solid var(--border);
   transform: translateX(-100%);
-  transition: transform 0.3s ease;
+  transition: transform 0.3s cubic-bezier(.4, 1, .6, 1);
 }
 
 .sidebar.active {
   transform: translateX(0);
 }
 
-.dark .sidebar {
-  background: #1a1a1c;
-  color: #e0e0e0;
-  border-right: 1px solid #2c2c2e;
-}
-
 .sidebar-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   height: 60px;
-  background: #fff;
-  color: #343a40;
-  border-bottom: 1px solid #dee2e6;
-  padding: 0;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border);
+  padding: 0 8px;
   position: relative;
 }
 
-.dark .sidebar-header {
-  background: #1f1f23;
-  color: #e0e0e0;
-  border-bottom: 1px solid #2c2c2e;
-}
-
 .sidebar-title {
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
   font-size: 1.1em;
   font-weight: 600;
   color: inherit;
-  margin: 0 auto 0 0;
-  padding-left: 60px;
-}
-
-.dark-toggle {
-  background: none;
-  border: none;
-  border-radius: 8px;
-  width: 44px;
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background 0.18s;
-  color: #6c757d;
-  margin-right: 16px;
-}
-
-.dark-toggle img {
-  width: 28px;
-  height: 28px;
-  display: block;
-  filter: none;
-}
-
-.dark .dark-toggle img {
-  filter: invert(1) brightness(1.2);
-}
-
-.dark-toggle:hover {
-  background-color: #8492a633;
-}
-
-.dark .dark-toggle:hover {
-  background: #343a40;
+  padding-left: 48px;
 }
 
 #new-chat-button {
@@ -174,26 +131,23 @@ function closeSidebar() {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  background: #ec3750;
-  color: #fff;
+  background: var(--primary);
+  color: var(--primary-foreground);
   border: none;
   border-radius: 8px;
   padding: 10px 0;
   font-size: 1em;
   font-weight: 600;
-  transition: background 0.18s, box-shadow 0.18s, transform 0.15s;
-  box-shadow: 0 2px 8px #ec375022;
-}
-
-#new-chat-button img {
-  width: 20px;
-  height: 20px;
-  filter: none;
+  transition:
+    background 0.18s,
+    box-shadow 0.18s,
+    transform 0.15s;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.14);
 }
 
 #new-chat-button:hover {
-  background: #cb2c41;
-  box-shadow: 0 4px 16px #ec375055;
+  background: var(--primary-600);
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.24);
   transform: scale(1.03);
 }
 
@@ -223,37 +177,39 @@ function closeSidebar() {
   flex-grow: 1;
   text-align: left;
   background: none;
-  color: #495057;
+  color: var(--text-primary);
   border: none;
   border-radius: 6px;
   padding: 8px 10px;
   font-size: 0.95em;
   font-family: inherit;
   font-weight: 500;
-  transition: background 0.18s, color 0.18s;
+  transition:
+    background 0.18s,
+    color 0.18s;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .conversation-button:hover {
-  background: #338eda22;
-  color: #338eda;
+  background: var(--bg-tertiary);
+  color: var(--primary);
 }
 
 .conversation-button.active {
-  background: #ec375011;
-  color: #ec3750;
+  background: var(--bg-secondary);
+  color: var(--primary);
   font-weight: 700;
 }
 
 .dark .conversation-button {
-  color: #adb5bd;
+  color: var(--text-secondary);
 }
 
 .dark .conversation-button.active {
-  background: #ec375033;
-  color: #ec3750;
+  background: var(--bg-secondary);
+  color: var(--primary);
 }
 
 .delete-button.no-hover {
@@ -275,11 +231,41 @@ function closeSidebar() {
   background: rgba(0, 0, 0, 0.4);
   opacity: 1;
   z-index: 1001;
-  transition: opacity 0.2s ease-out;
+  transition: opacity 0.3s cubic-bezier(.4, 1, .6, 1);
   will-change: opacity;
   pointer-events: auto;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
+}
+
+.settings-button {
+  background: none;
+  border: none;
+  border-radius: 8px;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.18s;
+  color: var(--text-primary);
+}
+
+.settings-button:hover {
+  background: var(--bg-tertiary);
+  transform: scale(1.05);
+}
+
+.settings-button img {
+  width: 28px;
+  height: 28px;
+  display: block;
+  filter: none;
+}
+
+.dark .settings-button img {
+  filter: invert(1) brightness(1.2);
 }
 
 @media (min-width: 900px) {

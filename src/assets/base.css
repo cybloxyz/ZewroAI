@@ -1,53 +1,214 @@
-/* color palette from <https://github.com/vuejs/theme> */
+/* Color variables (light + dark) — semantic tokens only.
+   Purpose: Drop these into your CSS (e.g., at the top of a globals file) and reference
+   the semantic tokens in your components. The comments next to each variable explain
+   what it's intended to be used for.
+
+   Notes:
+   - Contrast-conscious: text colors are full-strength; primary colors include hover/dark variants
+   - Light mode: refreshing and bright but comfortable for long reading
+   - Dark mode: deep, colorful, still readable; primary keeps visual pop against dark surfaces
+*/
+
 :root {
-  --vt-c-white: #ffffff;
-  --vt-c-white-soft: #f8f8f8;
-  --vt-c-white-mute: #f2f2f2;
+  /* ----------------- LIGHT THEME (warmer + grayer) ----------------- */
+  /* Page & surfaces */
+  --bg: #f5f5f6; /* soft, neutral gray canvas */
+  --surface: #ffffff; /* cards, panels, app surfaces */
+  --elevated-surface: #f3f4f6; /* slightly tinted surface for grouped panels/inputs */
 
-  --vt-c-black: #181818;
-  --vt-c-black-soft: #222222;
-  --vt-c-black-mute: #282828;
+  /* Text */
+  --text-primary: #111827; /* strong, neutral dark (gray-black) */
+  --text-secondary: #4b5563; /* neutral secondary */
+  --text-muted: #6b7280; /* placeholders, disabled labels */
 
-  --vt-c-indigo: #2c3e50;
+  /* Borders & dividers */
+  --border: #e6e7eb; /* clean gray divider */
+  --muted-border: #f1f2f4; /* very light grouping divider */
 
-  --vt-c-divider-light-1: rgba(60, 60, 60, 0.29);
-  --vt-c-divider-light-2: rgba(60, 60, 60, 0.12);
-  --vt-c-divider-dark-1: rgba(84, 84, 84, 0.65);
-  --vt-c-divider-dark-2: rgba(84, 84, 84, 0.48);
+  /* Primary (brand / main CTA) — warm, readable */
+  --primary: #c04a2c; /* warm burnt-sienna (use sparingly for CTAs) */
+  --primary-foreground: #ffffff; /* text/icon color when placed on --primary */
+  --primary-600: #9b3d23; /* hover / active */
+  --primary-800: #6f2a18; /* pressed/strong state */
 
-  --vt-c-text-light-1: var(--vt-c-indigo);
-  --vt-c-text-light-2: rgba(60, 60, 60, 0.66);
-  --vt-c-text-dark-1: var(--vt-c-white);
-  --vt-c-text-dark-2: rgba(235, 235, 235, 0.64);
-}
+  /* Secondary / supporting accent */
+  --secondary: #b38b3b; /* desaturated warm mustard */
+  --secondary-600: #8f6d2e; /* hover/darker */
 
-/* semantic color variables for this project */
-:root {
-  --color-background: var(--vt-c-white);
-  --color-background-soft: var(--vt-c-white-soft);
-  --color-background-mute: var(--vt-c-white-mute);
+  /* Accent colors (use sparingly for highlights) */
+  --accent-warm: #f59e0b; /* lively warm accent */
+  --accent-soft: #d6a95a; /* softer warm highlight */
 
-  --color-border: var(--vt-c-divider-light-2);
-  --color-border-hover: var(--vt-c-divider-light-1);
+  /* Feedback / semantic statuses */
+  --success: #15803d; /* success states (slightly muted green) */
+  --warning: #b45309; /* warm warning */
+  --danger: #b91c1c; /* error (stronger, desaturated red) */
+  --info: #0f766e; /* muted teal/info */
 
-  --color-heading: var(--vt-c-text-light-1);
-  --color-text: var(--vt-c-text-light-1);
+  /* Shadows & focus rings */
+  --shadow-elev: rgba(2, 6, 23, 0.06); /* subtle soft shadow */
+  --focus-ring: rgba(
+    192,
+    74,
+    44,
+    0.12
+  ); /* warmer focus ring tinted with primary */
 
+  /* Component-specific variables */
+  --bg-primary: var(--surface);
+  --bg-secondary: var(--elevated-surface);
+  --bg-tertiary: var(--muted-border);
+
+  /* Chat panel colors */
+  --text-primary-light: var(--text-primary);
+  --text-secondary-light: var(--text-secondary);
+  --text-primary-dark: var(--text-primary);
+  --text-secondary-dark: var(--text-secondary);
+  --reasoning-border-light: var(--border);
+  --reasoning-border-dark: var(--border);
+
+  /* Code block colors */
+  --code-bg: #0d1117; /* keep code blocks dark for readability on light pages */
+  --code-header-bg: #141821;
+  --code-border: #2b333a;
+  --code-text: #c9d1d9;
+  --code-action-text: #8b949e;
+  --code-action-hover-bg: rgba(173, 186, 199, 0.06);
+  --code-action-hover-text: #c9d1d9;
+
+  /* Message form colors */
+  --bg-input: var(--surface);
+  --text-placeholder: var(--text-muted);
+  --shadow-default: 0 2px 8px var(--shadow-elev);
+  --btn-model-selector-bg: var(--muted-border);
+  --btn-model-selector-text: var(--text-primary);
+  --btn-model-selector-hover-bg: var(--border);
+  --btn-send-bg: var(--primary);
+  --btn-send-hover-bg: var(--primary-600);
+  --btn-send-disabled-bg: var(--border);
+  --btn-send-text: var(--primary-foreground);
+  --popover-bg: var(--surface);
+  --popover-border: var(--border);
+  --popover-shadow: 0 4px 16px var(--shadow-elev);
+  --popover-header-text: var(--text-primary);
+  --popover-list-item-bg-hover: var(--muted-border);
+  --popover-list-item-text: var(--text-primary);
+  --popover-list-item-selected-bg: var(--border);
+  --popover-list-item-selected-text: var(--text-primary);
+
+  /* Welcome overlay */
+  --text-light: var(--text-primary);
+  --text-dark: var(--text-primary);
+
+  /* App-specific colors */
+  --color-bubble-user-bg: var(--primary);
+  --color-bubble-user-text: var(--primary-foreground);
+
+  /* Spacing */
+  --spacing-4: 4px;
+  --spacing-8: 8px;
+  --spacing-12: 12px;
+  --spacing-16: 16px;
+  --spacing-24: 24px;
   --section-gap: 160px;
+
+  /* Borders */
+  --border-radius: 12px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 var(--shadow-elev);
+  --shadow-md:
+    0 4px 6px -1px var(--shadow-elev), 0 2px 4px -1px var(--shadow-elev);
+  --shadow-lg:
+    0 10px 15px -3px var(--shadow-elev), 0 4px 6px -2px var(--shadow-elev);
+  --shadow-xl:
+    0 20px 25px -5px var(--shadow-elev), 0 10px 10px -5px var(--shadow-elev);
+
+  /* Fonts */
+  --font: "DM Sans", sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-background: var(--vt-c-black);
-    --color-background-soft: var(--vt-c-black-soft);
-    --color-background-mute: var(--vt-c-black-mute);
+/* ----------------- DARK THEME (deep, warm, grayer) ----------------- */
+.dark {
+  color-scheme: dark;
 
-    --color-border: var(--vt-c-divider-dark-2);
-    --color-border-hover: var(--vt-c-divider-dark-1);
+  /* Page & surfaces */
+  --bg: #0b0b0d; /* deep neutral background (very dark gray) */
+  --surface: #0f1113; /* main surface for cards/panels */
+  --elevated-surface: #141618; /* slightly lighter elevated surface */
 
-    --color-heading: var(--vt-c-text-dark-1);
-    --color-text: var(--vt-c-text-dark-2);
-  }
+  /* Text */
+  --text-primary: #e6e6e7; /* light, neutral text */
+  --text-secondary: #a3a3a6; /* desaturated secondary */
+  --text-muted: #737373; /* muted labels */
+
+  /* Borders & dividers */
+  --border: rgba(230, 230, 230, 0.06); /* subtle divider on dark */
+  --muted-border: rgba(230, 230, 230, 0.04);
+
+  /* Primary (warm, visible on dark surfaces) */
+  --primary: #e06a3a; /* warm orange that pops on dark */
+  --primary-foreground: #ffffff; /* always white on dark primary */
+  --primary-600: #b34e2b; /* hover/darker */
+  --primary-800: #7a321d; /* pressed/strong */
+
+  /* Secondary supporting accent */
+  --secondary: #9e7a3a; /* muted golden-olive */
+  --secondary-600: #7f6130;
+
+  /* Accents & feedback */
+  --accent-warm: #f59e0b; /* warm accent */
+  --accent-soft: #f3dfa6; /* softer warm highlight */
+
+  --success: #34d399;
+  --warning: #f59e0b;
+  --danger: #f87171;
+  --info: #60f0f0;
+
+  /* Shadows & focus */
+  --shadow-elev: rgba(0, 0, 0, 0.6);
+  --focus-ring: rgba(224, 106, 58, 0.14); /* warmer focus */
+
+  /* Component-specific variables for dark mode */
+  --bg-primary: var(--surface);
+  --bg-secondary: var(--elevated-surface);
+  --bg-tertiary: var(--muted-border);
+
+  /* Chat panel colors for dark mode */
+  --text-primary-dark: var(--text-primary);
+  --text-secondary-dark: var(--text-secondary);
+  --reasoning-border-dark: var(--border);
+
+  /* Message form dark colors */
+  --bg-input: var(--elevated-surface);
+  --text-placeholder: var(--text-muted);
+  --shadow-default: 0 4px 12px var(--shadow-elev);
+  --btn-model-selector-bg: var(--muted-border);
+  --btn-model-selector-text: var(--text-primary);
+  --btn-model-selector-hover-bg: var(--border);
+  --btn-send-bg: var(--primary);
+  --btn-send-hover-bg: var(--primary-600);
+  --btn-send-disabled-bg: var(--border);
+  --popover-bg: var(--surface);
+  --popover-border: var(--border);
+  --popover-shadow: 0 8px 30px var(--shadow-elev);
+  --popover-list-item-bg-hover: var(--muted-border);
+  --popover-list-item-text: var(--text-primary);
+  --popover-list-item-selected-bg: var(--border);
+  --popover-list-item-selected-text: var(--text-primary);
+
+  /* Code block adjustments for dark */
+  --code-bg: #07121a;
+  --code-header-bg: #0d141a;
+  --code-border: #1f2a33;
+  --code-text: #e6eef8;
+  --code-action-text: #aab7c2;
+  --code-action-hover-bg: rgba(255, 255, 255, 0.03);
+  --code-action-hover-text: #e6eef8;
 }
 
 *,
@@ -64,8 +225,8 @@ body {
   width: 100vw;
   margin: 0;
   padding: 0;
-  color: var(--color-text);
-  background: var(--color-background);
+  color: var(--text-primary);
+  background: var(--bg);
   transition:
     color 0.5s,
     background-color 0.5s;
