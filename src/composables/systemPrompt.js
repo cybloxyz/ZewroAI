@@ -40,7 +40,7 @@ const BOUNDARIES_AND_LIMITATIONS = `### Your Limitations
  * @param {string[]} [toolNames=[]] - Array of available tool names.
  * @param {object} [settings={}] - User settings object.
  * @param {string} [settings.user_name] - The user's name.
- * @param {string} [settings.user_occupation] - The user's occupation.
+ * @param {string} [settings.occupation] - The user's occupation.
  * @param {string} [settings.custom_instructions] - Custom instructions from the user.
  * @returns {string} The final, complete system prompt.
  */
@@ -48,19 +48,19 @@ export function generateSystemPrompt(toolNames = [], settings = {}) {
   // Start with the core identity and main principles.
   const promptSections = [CORE_IDENTITY];
 
-  const { user_name, user_occupation, custom_instructions } = settings;
+  const { user_name, occupation, custom_instructions } = settings;
 
   // **User Context Section (High Priority)**
   // This is added early to ensure the model prioritizes it.
-  if (user_name || user_occupation) {
+  if (user_name || occupation) {
     let userContext = "### Your User\n";
-    if (user_name && user_occupation) {
-      userContext += `You are talking to ${user_name}, who is a ${user_occupation}.`;
+    if (user_name && occupation) {
+      userContext += `You are talking to a user who has set their name globally to: ${user_name} and their occupation globally to: ${occupation}.`;
     } else if (user_name) {
-      userContext += `You are talking to a user named ${user_name}.`;
+      userContext += `You are talking to a user who has set their name globally to: ${user_name}.`;
     } else {
       // Only occupation is present
-      userContext += `You are talking to a user who is as a ${user_occupation}.`;
+      userContext += `You are talking to a user who has set their occupation globally to: ${occupation}.`;
     }
     promptSections.push(userContext);
   }

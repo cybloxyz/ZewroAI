@@ -1,9 +1,7 @@
 <script setup>
-import { ref, onBeforeUnmount, onMounted, nextTick } from "vue";
+import { ref, onBeforeUnmount, onMounted } from "vue";
 import localforage from "localforage";
 import { emitter } from "@/emitter";
-import { DropdownMenuRoot, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "reka-ui";
-import SettingsPanel from "./SettingsPanel.vue";
 import { Icon } from "@iconify/vue";
 
 const emit = defineEmits([
@@ -141,7 +139,6 @@ function closeSidebar() {
     background 0.18s,
     box-shadow 0.18s,
     transform 0.15s;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.14);
 }
 
 #new-chat-button:hover {

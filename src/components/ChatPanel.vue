@@ -5,9 +5,6 @@ import "highlight.js/styles/github-dark.css";
 import MarkdownIt from "markdown-it";
 import markdownItFootnote from "markdown-it-footnote";
 import markdownItTaskLists from "markdown-it-task-lists";
-import WelcomeOverlay from "./WelcomeOverlay.vue";
-// Replace Element Plus icons with Phosphor Icons
-import { PhDownloadSimple, PhCopy, PhSun } from "@phosphor-icons/vue";
 
 const props = defineProps([
   "currConvo",
@@ -143,7 +140,7 @@ const handleScroll = () => {
       chatWrapper.value.scrollTop -
       chatWrapper.value.clientHeight,
     ) < 10;
-  
+
   // Emit scroll event with information about whether user is at top
   const isAtTop = chatWrapper.value.scrollTop === 0;
   emit('scroll', { isAtTop });
@@ -274,7 +271,7 @@ defineExpose({ scrollToEnd, isAtBottom });
 <template>
   <div class="chat-wrapper" ref="chatWrapper" @scroll="handleScroll">
     <div class="chat-container">
-      <WelcomeOverlay v-if="shouldShowWelcome" @setMessage="(msg) => emit('set-message', msg)" />
+      <h1 v-if="messages.length < 1" class="welcome-message">What do you need help with?</h1>
       <div class="messages-layer">
         <template v-for="message in messages" :key="message.id">
           <div class="message" :class="message.role">
@@ -367,6 +364,22 @@ defineExpose({ scrollToEnd, isAtBottom });
   box-sizing: border-box;
   position: relative;
   transition: all 0.3s cubic-bezier(.4, 1, .6, 1);
+}
+
+.welcome-message {
+  text-align: center;
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--text-primary-light);
+  margin: calc(1rem + 10vh) 0;
+  width: 100%;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.dark .welcome-message {
+  color: var(--text-primary-dark);
 }
 
 .message {
