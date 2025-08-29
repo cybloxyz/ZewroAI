@@ -2,6 +2,7 @@
 import { ref, computed, watch, nextTick } from "vue";
 import { PopoverRoot, PopoverTrigger, PopoverContent } from "reka-ui";
 import { availableModels } from "../composables/availableModels";
+import { Icon } from "@iconify/vue";
 
 // Define component properties and emitted events
 const props = defineProps({
@@ -170,15 +171,8 @@ defineExpose({ setMessage });
 
         <button type="submit" class="action-btn send-btn" :disabled="!trimmedMessage && !isLoading"
           @click="handleActionClick" :aria-label="isLoading ? 'Stop generation' : 'Send message'">
-          <svg v-if="!isLoading" class="icon-send" key="send" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M22 2L11 13" />
-            <polygon points="22 2 15 22 11 13 2 9 22 2" />
-          </svg>
-          <svg v-else class="icon-stop" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"
-            stroke-linecap="round" stroke-linejoin="round">
-            <rect x="7" y="7" width="10" height="10" rx="2" />
-          </svg>
+          <Icon v-if="!isLoading" icon="material-symbols:send-rounded" width="22" height="22" />
+          <Icon v-else icon="material-symbols:stop-rounded" width="22" height="22" />
         </button>
       </div>
     </div>
@@ -228,6 +222,10 @@ defineExpose({ setMessage });
   overflow-y: auto;
 }
 
+.chat-textarea:focus {
+  outline: none;
+}
+
 /* --- BUTTONS --- */
 .action-btn {
   display: inline-flex;
@@ -250,7 +248,7 @@ defineExpose({ setMessage });
   font-size: 1rem;
   font-weight: 500;
   color: var(--btn-model-selector-text);
-  border-radius: 10px;
+  border-radius: 12px;
   white-space: nowrap;
   align-items: center;
 }
@@ -279,11 +277,7 @@ defineExpose({ setMessage });
   flex-shrink: 0;
 }
 
-.send-btn .icon-send,
-.send-btn .icon-stop {
-  width: 22px;
-  height: 22px;
-}
+
 
 .send-btn:hover:not(:disabled) {
   background-color: var(--btn-send-hover-bg);
@@ -326,7 +320,7 @@ defineExpose({ setMessage });
   overflow-y: auto;
   scrollbar-gutter: stable both-edges;
   background: var(--popover-bg);
-  border-radius: 24px;
+  border-radius: 12px;
 }
 
 .model-list-item {

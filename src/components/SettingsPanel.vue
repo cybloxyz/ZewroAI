@@ -3,6 +3,7 @@ import { onMounted, ref, watch, reactive } from "vue";
 import Settings from "@/composables/settings";
 import { useDark, useToggle } from "@vueuse/core";
 import { SwitchRoot, SwitchThumb } from "reka-ui";
+import { Icon } from "@iconify/vue";
 
 // Define props and emits
 const props = defineProps(["isOpen", "initialTab"]);
@@ -25,22 +26,22 @@ const navItems = [
   {
     key: "general",
     label: "General",
-    icon: "M12 1L3 5V11C3 16.55 6.84 21.74 12 23C17.16 21.74 21 16.55 21 11V5L12 1ZM12 7C13.1 7 14 7.9 14 9S13.1 11 12 11 10 10.1 10 9 10.9 7 12 7ZM18 15C16.59 16.41 14.42 17.17 12 17.17S7.41 16.41 6 15C6.58 13.83 9.61 13.17 12 13.17S17.42 13.83 18 15Z"
+    icon: "material-symbols:settings"
   },
   {
     key: "customization",
     label: "Customization",
-    icon: "M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"
+    icon: "material-symbols:palette"
   },
   {
     key: "memory",
     label: "Memory",
-    icon: "M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"
+    icon: "material-symbols:memory"
   },
   {
     key: "about",
     label: "About",
-    icon: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"
+    icon: "material-symbols:info"
   }
 ];
 
@@ -53,8 +54,6 @@ onMounted(async () => {
   // Load global memory setting (placeholder for now)
   globalMemoryEnabled.value = false;
 });
-
-// Watch props.isOpen to set the initial tab when the modal opens
 watch(
   () => props.isOpen,
   (newVal) => {
@@ -88,10 +87,7 @@ function saveSettings() {
           <h1 class="panel-title">Settings</h1>
         </div>
         <button class="close-btn" @click="closeSettings" aria-label="Close settings">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
+          <Icon icon="material-symbols:close" width="20" height="20" />
         </button>
       </div>
 
@@ -102,9 +98,7 @@ function saveSettings() {
             <NavigationMenuItem v-for="item in navItems" :key="item.key" class="nav-item">
               <NavigationMenuLink class="nav-link" :class="{ active: currTab === item.key }"
                 @click="currTab = item.key">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                  <path :d="item.icon" />
-                </svg>
+                <Icon :icon="item.icon" width="18" height="18" />
                 <span class="nav-label">{{ item.label }}</span>
               </NavigationMenuLink>
             </NavigationMenuItem>

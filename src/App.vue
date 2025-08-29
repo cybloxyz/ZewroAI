@@ -1,5 +1,5 @@
 <script setup>
-import { ref, nextTick, onMounted, computed, reactive } from 'vue';
+import { ref, nextTick, onMounted, computed, reactive, watch, onBeforeUnmount } from 'vue';
 import 'highlight.js/styles/github-dark.css';
 import { inject } from "@vercel/analytics"
 import { injectSpeedInsights } from '@vercel/speed-insights';
@@ -17,6 +17,7 @@ import MessageForm from './components/MessageForm.vue';
 import ChatPanel from './components/ChatPanel.vue';
 import AppSidebar from './components/AppSidebar.vue'
 import SettingsPanel from './components/SettingsPanel.vue'
+import { Icon } from "@iconify/vue";
 
 
 // Inject Vercel's analytics and performance insights
@@ -39,6 +40,7 @@ const chatLoading = ref(false);
 const isTyping = ref(false);
 const isSettingsOpen = ref(false);
 const settingsInitialTab = ref('general'); // Controls which tab opens in settings panel
+const isScrolledTop = ref(true); // Track if chat is scrolled to top
 
 // Initialize the Settings composable reactively
 const settingsManager = reactive(new Settings());
@@ -322,17 +324,28 @@ async function newConversation() {
   conversationTitle.value = '';
 }
 
-/**\n * Handles model selection from the MessageForm component.\n * Updates the settings with the selected model.\n */
+/**
+ * Handles scroll events from the ChatPanel component.
+ * @param {Object} event - The scroll event object
+ * @param {boolean} event.isAtTop - Whether the user is scrolled to the top
+ */
+function handleChatScroll(event) {
+  isScrolledTop.value = event.isAtTop;
+}
+
+/**
+ * Handles model selection from the MessageForm component.
+ * Updates the settings with the selected model.
+ */
 function handleModelSelect(modelId, modelName) {
   settingsManager.settings.selected_model_id = modelId;
   settingsManager.settings.selected_model_name = modelName;  // Trigger a reactive update
   settingsManager.saveSettings();
 }
 
-/**
- * Opens the settings panel to a specific tab.
- * @param {string} tabKey - The key of the tab to open (e.g., 'general', 'api').
- */
+/**\\n * Opens the settings panel to a specific tab.\
+ *  * @param {string} tabKey - The key of the tab to open (e.g., 'general', 'api').\
+ *  */
 function openSettingsPanel(tabKey = 'general') {
   settingsInitialTab.value = tabKey;
   isSettingsOpen.value = true;
@@ -343,7 +356,7 @@ function openSettingsPanel(tabKey = 'general') {
 <template>
   <div class="app-container">
     <button class="global-menu-toggle" :class="{ dark: isDark }" @click="toggleSidebar" aria-label="Toggle menu">
-      <img src="@/assets/menu.svg" alt="Menu" />
+      <Icon icon="material-symbols:side-navigation" width="24" height="24" />
     </button>
     <Suspense>
       <AppSidebar :curr-convo="currConvo" :messages="messages" :is-open="sidebarOpen"
@@ -360,9 +373,12 @@ function openSettingsPanel(tabKey = 'general') {
       - MessageForm: Fixed position at bottom, centered with dynamic width
     -->
     <div class="main-container" :class="{ 'sidebar-open': sidebarOpen }">
+      <div class="top-bar" :class="{ 'with-border': !isScrolledTop }">
+        <!-- Placeholder bar content -->
+      </div>
       <ChatPanel ref="chatPanel" :curr-convo="currConvo" :curr-messages="messages" :isLoading="isLoading"
         :conversationTitle="conversationTitle" :show-welcome="!currConvo && !isTyping"
-        @set-message="text => $refs.messageForm.setMessage(text)" />
+        @set-message="text => $refs.messageForm.setMessage(text)" @scroll="handleChatScroll" />
       <MessageForm ref="messageForm" :isLoading="isLoading" :selected-model-name="selectedModelName"
         :selected-model-id="selectedModelId" :on-model-select="handleModelSelect" @typing="isTyping = true"
         @empty="isTyping = false" @send-message="sendMessage" @abort-controller="controller.abort()" />
@@ -417,7 +433,7 @@ img {
 button {
   background: transparent;
   border: none;
-  padding: 10px;
+  padding: 8px;
   cursor: pointer;
   outline: none;
   border-radius: 12px;
@@ -429,7 +445,6 @@ button {
 button:hover {
   background-color: var(--bg-tertiary);
 }
-
 
 .app-container {
   display: flex;
@@ -465,6 +480,21 @@ button:hover {
   .main-container.sidebar-open {
     margin-left: 280px;
   }
+}
+
+/* Top bar styling */
+.top-bar {
+  height: 60px;
+  background-color: var(--bg);
+  width: 100%;
+  z-index: 1000;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  transition: border-bottom 0.2s ease;
+}
+
+.top-bar.with-border {
+  border-bottom: 1px solid var(--border);
 }
 
 /* Update fade transition timing */
@@ -538,17 +568,6 @@ button:hover {
 
 .dark .global-menu-toggle:hover {
   background: rgba(255, 255, 255, 0.1);
-}
-
-.global-menu-toggle img {
-  width: 44px;
-  height: 44px;
-  display: block;
-  filter: none;
-}
-
-.global-menu-toggle.dark img {
-  filter: invert(1) brightness(1.2);
 }
 
 .app-header {

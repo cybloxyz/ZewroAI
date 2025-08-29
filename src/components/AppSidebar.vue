@@ -4,6 +4,7 @@ import localforage from "localforage";
 import { emitter } from "@/emitter";
 import { DropdownMenuRoot, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "reka-ui";
 import SettingsPanel from "./SettingsPanel.vue";
+import { Icon } from "@iconify/vue";
 
 const emit = defineEmits([
   "changeConversation",
@@ -60,7 +61,7 @@ function closeSidebar() {
       <div class="sidebar-header">
         <span class="sidebar-title">Chats</span>
         <button class="settings-button" aria-label="Open settings" @click="$emit('openSettings')">
-          <img src="@/assets/settings.svg" width="28" height="28" alt="Settings" />
+          <Icon icon="material-symbols:settings" width="28" height="28" />
         </button>
       </div>
       <button id="new-chat-button" class="new-chat-btn" @click="$emit('newConversation')">
@@ -75,7 +76,7 @@ function closeSidebar() {
             </button>
             <button class="delete-button no-hover" @click.stop="$emit('deleteConversation', data.id)"
               aria-label="Delete chat">
-              <img src="@/assets/delete.svg" width="16" height="16" alt="delete conversation" />
+              <Icon icon="material-symbols:delete" width="16" height="16" />
             </button>
           </div>
         </div>
@@ -93,7 +94,7 @@ function closeSidebar() {
   width: 280px;
   max-width: 90vw;
   z-index: 1001;
-  background: var(--surface);
+  background: var(--bg-sidebar);
   color: var(--text-primary);
   border-right: 1px solid var(--border);
   transform: translateX(-100%);
@@ -109,9 +110,7 @@ function closeSidebar() {
   align-items: center;
   justify-content: space-between;
   height: 60px;
-  background: var(--bg-primary);
   color: var(--text-primary);
-  border-bottom: 1px solid var(--border);
   padding: 0 8px;
   position: relative;
 }
@@ -147,7 +146,6 @@ function closeSidebar() {
 
 #new-chat-button:hover {
   background: var(--primary-600);
-  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.24);
   transform: scale(1.03);
 }
 
@@ -223,6 +221,10 @@ function closeSidebar() {
   opacity: 1;
 }
 
+.delete-button :deep(svg) {
+  color: var(--danger);
+}
+
 .sidebar-overlay {
   position: fixed;
   inset: 0;
@@ -238,34 +240,13 @@ function closeSidebar() {
   -webkit-tap-highlight-color: transparent;
 }
 
-.settings-button {
-  background: none;
-  border: none;
-  border-radius: 8px;
-  width: 44px;
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background 0.18s;
-  color: var(--text-primary);
-}
-
 .settings-button:hover {
-  background: var(--bg-tertiary);
+  background: rgba(0, 0, 0, 0.1);
   transform: scale(1.05);
 }
 
-.settings-button img {
-  width: 28px;
-  height: 28px;
-  display: block;
-  filter: none;
-}
-
-.dark .settings-button img {
-  filter: invert(1) brightness(1.2);
+.dark .settings-button:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 @media (min-width: 900px) {

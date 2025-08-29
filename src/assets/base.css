@@ -12,18 +12,18 @@
 :root {
   /* ----------------- LIGHT THEME (warmer + grayer) ----------------- */
   /* Page & surfaces */
-  --bg: #f5f5f6; /* soft, neutral gray canvas */
-  --surface: #ffffff; /* cards, panels, app surfaces */
-  --elevated-surface: #f3f4f6; /* slightly tinted surface for grouped panels/inputs */
+  --bg: #ebe7e2; /* soft, neutral gray canvas */
+  --surface: #dbd4d1; /* cards, panels, app surfaces */
+  --elevated-surface: #e6dfdc; /* slightly tinted surface for grouped panels/inputs */
 
   /* Text */
-  --text-primary: #111827; /* strong, neutral dark (gray-black) */
-  --text-secondary: #4b5563; /* neutral secondary */
-  --text-muted: #6b7280; /* placeholders, disabled labels */
+  --text-primary: #3a2119; /* strong, neutral dark (gray-black) */
+  --text-secondary: #63564b; /* neutral secondary */
+  --text-muted: #80716b; /* placeholders, disabled labels */
 
   /* Borders & dividers */
-  --border: #e6e7eb; /* clean gray divider */
-  --muted-border: #f1f2f4; /* very light grouping divider */
+  --border: #cabdb6; /* clean gray divider */
+  --muted-border: #e6e7e8; /* very light grouping divider */
 
   /* Primary (brand / main CTA) — warm, readable */
   --primary: #c04a2c; /* warm burnt-sienna (use sparingly for CTAs) */
@@ -77,7 +77,8 @@
   --code-action-hover-text: #c9d1d9;
 
   /* Message form colors */
-  --bg-input: var(--surface);
+  --bg-input: var(--elevated-surface);
+  --bg-sidebar: var(--surface);
   --text-placeholder: var(--text-muted);
   --shadow-default: 0 2px 8px var(--shadow-elev);
   --btn-model-selector-bg: var(--muted-border);
@@ -87,7 +88,7 @@
   --btn-send-hover-bg: var(--primary-600);
   --btn-send-disabled-bg: var(--border);
   --btn-send-text: var(--primary-foreground);
-  --popover-bg: var(--surface);
+  --popover-bg: var(--bg-primary);
   --popover-border: var(--border);
   --popover-shadow: 0 4px 16px var(--shadow-elev);
   --popover-header-text: var(--text-primary);
@@ -137,9 +138,9 @@
   color-scheme: dark;
 
   /* Page & surfaces */
-  --bg: #0b0b0d; /* deep neutral background (very dark gray) */
-  --surface: #0f1113; /* main surface for cards/panels */
-  --elevated-surface: #141618; /* slightly lighter elevated surface */
+  --bg: #1c1919; /* deep neutral background (very dark gray) */
+  --surface: #131110; /* main surface for cards/panels */
+  --elevated-surface: #22201e; /* slightly lighter elevated surface */
 
   /* Text */
   --text-primary: #e6e6e7; /* light, neutral text */
@@ -184,6 +185,7 @@
   --reasoning-border-dark: var(--border);
 
   /* Message form dark colors */
+  --bg-sidebar: var(--surface);
   --bg-input: var(--elevated-surface);
   --text-placeholder: var(--text-muted);
   --shadow-default: 0 4px 12px var(--shadow-elev);

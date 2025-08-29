@@ -16,7 +16,7 @@ const props = defineProps([
   "conversationTitle",
   "showWelcome",
 ]);
-const emit = defineEmits(["send-message", "set-message"]);
+const emit = defineEmits(["send-message", "set-message", "scroll"]);
 
 const shouldShowWelcome = computed(() => {
   return (
@@ -143,6 +143,10 @@ const handleScroll = () => {
       chatWrapper.value.scrollTop -
       chatWrapper.value.clientHeight,
     ) < 10;
+  
+  // Emit scroll event with information about whether user is at top
+  const isAtTop = chatWrapper.value.scrollTop === 0;
+  emit('scroll', { isAtTop });
 };
 
 // Watch for changes in the messages array

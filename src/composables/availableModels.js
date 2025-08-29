@@ -30,7 +30,7 @@ export const availableModels = [
   },
   {
     id: "meta-llama/llama-4-maverick-17b-128e-instruct",
-    name: "LLaMA 4 Maverick 17B",
+    name: "LLaMA 4 Maverick",
     reasoning: false,
     extra_functions: [],
     extra_parameters: {},
