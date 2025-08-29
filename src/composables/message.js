@@ -4,8 +4,8 @@
  * and streaming responses using manual fetch() processing.
  */
 
-import { availableModels } from './availableModels';
-import { generateSystemPrompt } from './systemPrompt';
+import { availableModels } from "./availableModels";
+import { generateSystemPrompt } from "./systemPrompt";
 
 /**\n * Main entry point for processing all incoming user messages for the API interface.\n * It determines the correct API configuration and streams the LLM response.\n *\n * @param {string} query - The user's message\n * @param {Array} plainMessages - Conversation history (e.g., [{ role: \"user\", content: \"...\"}, { role: \"assistant\", content: \"...\"}])\n * @param {AbortController} controller - AbortController instance for cancelling API requests\n * @param {string} selectedModel - The model chosen by the user\n * @param {object} modelParameters - Object containing all configurable model parameters (temperature, top_p, max_tokens, seed, reasoning)\n * @param {object} settings - User settings object containing user_name, user_occupation, and custom_instructions\n * @param {string[]} toolNames - Array of available tool names\n * @yields {Object} A chunk object with content and/or reasoning\n *   @property {string|null} content - The main content of the response chunk\n *   @property {string|null} reasoning - Any reasoning information included in the response chunk\n */
 export async function* handleIncomingMessage(
@@ -25,12 +25,12 @@ export async function* handleIncomingMessage(
 
     // Generate system prompt based on settings and available tools
     const systemPrompt = generateSystemPrompt(toolNames, settings);
-    
+
     // Add the system prompt and current user query to the messages for the LLM call
     const messagesToSend = [
       { role: "system", content: systemPrompt },
-      ...plainMessages, 
-      { role: "user", content: query }
+      ...plainMessages,
+      { role: "user", content: query },
     ];
 
     // Prepare the request body according to Groq API specification
@@ -39,33 +39,38 @@ export async function* handleIncomingMessage(
       messages: messagesToSend,
       temperature: modelParameters.temperature,
       top_p: modelParameters.top_p,
-      stream: true // Enable streaming
+      stream: true, // Enable streaming
     };
 
     // Add optional parameters only if they are not null/undefined
     if (modelParameters.max_tokens != null) {
       requestBody.max_tokens = modelParameters.max_tokens;
     }
-    
+
     if (modelParameters.seed != null) {
       requestBody.seed = modelParameters.seed;
     }
-    
+
     if (modelParameters.presence_penalty != null) {
       requestBody.presence_penalty = modelParameters.presence_penalty;
     }
-    
+
     if (modelParameters.frequency_penalty != null) {
       requestBody.frequency_penalty = modelParameters.frequency_penalty;
     }
 
     // Add reasoning parameters only if the model supports reasoning
-    const selectedModelInfo = availableModels.find(model => model.id === selectedModel);
+    const selectedModelInfo = availableModels.find(
+      (model) => model.id === selectedModel
+    );
     if (selectedModelInfo && selectedModelInfo.reasoning) {
       requestBody.reasoning_format = "parsed";
-      
+
       // Add reasoning_effort if specified in model parameters and enabled
-      if (modelParameters.reasoning?.enabled && modelParameters.reasoning.effort) {
+      if (
+        modelParameters.reasoning?.enabled &&
+        modelParameters.reasoning.effort
+      ) {
         requestBody.reasoning_effort = modelParameters.reasoning.effort;
       }
     }
@@ -147,17 +152,15 @@ export async function* handleIncomingMessage(
 
                 // Handle reasoning delta (if available in the response format)
                 if (choice.delta?.reasoning) {
-                  if (modelParameters.reasoning?.enabled) {
-                    // Track when reasoning starts
-                    if (!reasoningStartTime) {
-                      reasoningStartTime = new Date();
-                    }
-
-                    yield {
-                      content: null,
-                      reasoning: choice.delta.reasoning,
-                    };
+                  // Track when reasoning starts
+                  if (!reasoningStartTime) {
+                    reasoningStartTime = new Date();
                   }
+
+                  yield {
+                    content: null,
+                    reasoning: choice.delta.reasoning,
+                  };
                 }
 
                 // Handle finish reason

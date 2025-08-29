@@ -1,5 +1,6 @@
 <script setup>
 import { ref, nextTick, onMounted, computed, reactive, watch, onBeforeUnmount } from 'vue';
+import 'highlight.js/styles/github.css';
 import 'highlight.js/styles/github-dark.css';
 import { inject } from "@vercel/analytics"
 import { injectSpeedInsights } from '@vercel/speed-insights';
@@ -140,7 +141,7 @@ async function sendMessage(message) {
   await nextTick();
   // Use requestAnimationFrame for more reliable scrolling
   requestAnimationFrame(() => {
-    chatPanel.value?.scrollToEnd("instant");
+    chatPanel.value?.scrollToEnd("smooth");
   });
 
   // Get current model details from the settingsManager (reactive instance)
@@ -249,10 +250,6 @@ async function sendMessage(message) {
     console.log('Messages array before storage:', JSON.stringify(messages.value));
     await storeMessages(currConvo.value, messages.value, new Date());
     await nextTick();
-    // Use requestAnimationFrame for more reliable scrolling
-    requestAnimationFrame(() => {
-      chatPanel.value?.scrollToEnd("instant");
-    });
   }
 }
 
@@ -377,7 +374,7 @@ function openSettingsPanel(tabKey = 'general') {
         <!-- Placeholder bar content -->
       </div>
       <ChatPanel ref="chatPanel" :curr-convo="currConvo" :curr-messages="messages" :isLoading="isLoading"
-        :conversationTitle="conversationTitle" :show-welcome="!currConvo && !isTyping"
+        :conversationTitle="conversationTitle" :show-welcome="!currConvo && !isTyping" :is-dark="isDark"
         @set-message="text => $refs.messageForm.setMessage(text)" @scroll="handleChatScroll" />
       <MessageForm ref="messageForm" :isLoading="isLoading" :selected-model-name="selectedModelName"
         :selected-model-id="selectedModelId" :on-model-select="handleModelSelect" @typing="isTyping = true"
@@ -512,7 +509,7 @@ button:hover {
 
 .dark #app {
   background: var(--bg);
-  scrollbar-color: #252429 #3c4858;
+  scrollbar-color: #54514d transparent;
   color: var(--text-primary);
 }
 

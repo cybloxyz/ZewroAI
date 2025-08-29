@@ -1,41 +1,26 @@
 # Aegis AI
 
-Aegis AI is an AI ChatBot that uses various models through [HackClub's free API](https://ai.hackclub.com).
+Aegis AI is a **free, unlimited** AI ChatBot that uses various models through [Hack Club's free API](https://ai.hackclub.com).
+Aegis AI does **not** sell your user information, and all chat & user data is stored locally, on your device. However, Hack Club does log all API usage.
 
 ## Features
 
-- Chat data is stored locally on your device. No data is stored on the internet.
-- Full Markdown Support (excluding math LaTex syntax).
-- Supports for multiple chats.
-- Detailed code-blocks, including syntax highlighting and a copy button.
-- Customizeable system prompt.
-- Cross-chat memory (similar to ChatGPT's functionality).
-- A custom-made Reasoning option (allows the AI to think deeply, critiquing their own thoughts) with visible "thoughts".
+- All data is stored locally on your device. No data is stored on the internet (outside of Hack Club's logs).
+- Full Markdown Support.
+- Support for multiple chats.
+- Detailed code-blocks, including syntax highlighting, downloading, and a copy button.
+- Customizable with name, occupation, and custom instructions.
+- Reasoning is visible.
 
 ## Todo
 
 Please suggest more ideas in the Issues tab.
 
-### V1
-
-- [x] ~~Memory and chat persistence~~
-- [x] ~~Multiple chats at any one time~~
-- [x] ~~Customizable system prompt~~
-- [x] ~~Working memory between conversations~~
-- [x] ~~Better code support (copy button, etc.)~~
-
-### V2
-
-- [x] ~~Basic Reasoning/Chain-of-Thought functionality~~
-
-### V3
-
-- [ ] Improved Reasoning/Chain-of-Thought
-- [ ] Canvas/Code Panel
-
-### V4
-
-- [ ] Tree-of-Thought (Split a reasoning thought into multiple seperate Chain-of-Thoughts, each running asynchronously)
+- Improved Reasoning/Chain-of-Thought
+- Canvas/Code Panel
+- Tree-of-Thought (Split a reasoning thought into multiple seperate Chain-of-Thoughts, each running asynchronously)
+- Tools (mainly search & code execution for the GPT-OSS models, which are handled automatically by Groq)
+- Memory (used to be a feature, no longer available)
 
 ## VSCode Setup
 

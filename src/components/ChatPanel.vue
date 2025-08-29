@@ -1,10 +1,12 @@
 <script setup>
 import { onMounted, ref, watch, nextTick, computed, reactive } from "vue";
+import { Icon } from "@iconify/vue";
 import hljs from "highlight.js";
-import "highlight.js/styles/github-dark.css";
 import MarkdownIt from "markdown-it";
 import markdownItFootnote from "markdown-it-footnote";
 import markdownItTaskLists from "markdown-it-task-lists";
+import markdownItKatex from "markdown-it-katex";
+import "katex/dist/katex.min.css";
 
 const props = defineProps([
   "currConvo",
@@ -12,15 +14,9 @@ const props = defineProps([
   "isLoading",
   "conversationTitle",
   "showWelcome",
+  "isDark"
 ]);
 const emit = defineEmits(["send-message", "set-message", "scroll"]);
-
-const shouldShowWelcome = computed(() => {
-  return (
-    props.showWelcome &&
-    (!props.currMessages || props.currMessages.length === 0)
-  );
-});
 
 const langExtMap = {
   python: "py",
@@ -53,14 +49,9 @@ const md = new MarkdownIt({
   typographer: true,
 })
   .use(markdownItFootnote)
-  .use(markdownItTaskLists, { enabled: true, label: true, bulletMarker: "-" });
+  .use(markdownItTaskLists, { enabled: false, label: true, bulletMarker: "-" })
+  .use(markdownItKatex);
 
-// Store original rule to fall back to
-const defaultFence =
-  md.renderer.rules.fence ||
-  function (tokens, idx, options, env, self) {
-    return self.renderToken(tokens, idx, options);
-  };
 
 // Override the fence rule to inject custom wrapper and header
 md.renderer.rules.fence = (tokens, idx, options, env, self) => {
@@ -151,7 +142,7 @@ watch(
   messages,
   (newMessages) => {
     if (isAtBottom.value) {
-      nextTick(() => scrollToEnd("smooth"));
+      nextTick(() => scrollToEnd("instant"));
     }
 
     // Process each message
@@ -280,10 +271,7 @@ defineExpose({ scrollToEnd, isAtBottom });
               <details v-if="message.role === 'assistant' && message.reasoning" class="reasoning-details" open>
                 <summary class="reasoning-summary">
                   <span class="reasoning-toggle-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256">
-                      <path fill="currentColor"
-                        d="m181.66 133.66l-80 80a8 8 0 0 1-11.32-11.32L164.69 128L90.34 53.66a8 8 0 0 1 11.32-11.32l80 80a8 8 0 0 1 0 11.32Z" />
-                    </svg>
+                    <Icon icon="material-symbols:keyboard-arrow-down-rounded" width="24" height="24" />
                   </span>
                   <span class="reasoning-text">
                     <span v-if="liveReasoningTimers[message.id]">{{
@@ -335,7 +323,7 @@ defineExpose({ scrollToEnd, isAtBottom });
   --reasoning-border-light: var(--border);
   --reasoning-border-dark: var(--border);
 
-  /* Code block colors */
+  /* Code block colors - Dark mode (default) */
   --code-bg: #0d1117;
   --code-header-bg: #161b22;
   --code-border: #30363d;
@@ -343,6 +331,33 @@ defineExpose({ scrollToEnd, isAtBottom });
   --code-action-text: #8b949e;
   --code-action-hover-bg: rgba(173, 186, 199, 0.1);
   --code-action-hover-text: #c9d1d9;
+
+  /* Code block colors - Light mode */
+  --code-bg-light: #e4dfd8; /* Subtle orange/yellow hue, slightly darker than background (#ebe7e2) */
+  --code-header-bg-light: #ddd7d1; /* Slightly darker than code-bg-light */
+  --code-border-light: #cabdb6; /* Same as --border */
+  --code-text-light: #3a2119; /* Same as --text-primary */
+  --code-action-text-light: #63564b; /* Same as --text-secondary */
+  --code-action-hover-bg-light: rgba(192, 74, 44, 0.1); /* Subtle primary color hover effect */
+  --code-action-hover-text-light: #3a2119; /* Same as --text-primary */
+  
+  /* Code highlight colors - Light mode (darker for better contrast) */
+  --code-comment-light: #6b7280; /* Gray for comments */
+  --code-keyword-light: #9d1d04; /* Darker burnt sienna for keywords */
+  --code-function-light: #2d4a7e; /* Darker blue for functions */
+  --code-string-light: #9d5b04; /* Darker orange for strings */
+  --code-number-light: #106f5d; /* Darker teal for numbers */
+  --code-variable-light: #5b3a88; /* Darker purple for variables */
+  --code-property-light: #046d3d; /* Darker green for properties */
+
+  /* Code highlight colors - Dark mode */
+  --code-comment-dark: #8b949e; /* Gray for comments */
+  --code-keyword-dark: #ff7b72; /* Red for keywords */
+  --code-function-dark: #d2a8ff; /* Purple for functions */
+  --code-string-dark: #a5d6ff; /* Blue for strings */
+  --code-number-dark: #79c0ff; /* Light blue for numbers */
+  --code-variable-dark: #ffa657; /* Orange for variables */
+  --code-property-dark: #7ee787; /* Green for properties */
 
   /* Base layout */
   flex: 1;
@@ -479,11 +494,12 @@ defineExpose({ scrollToEnd, isAtBottom });
   transition: transform 0.2s ease-in-out;
   display: flex;
   align-items: center;
-  transform: rotate(0deg);
+  margin-left: -10px;
+  transform: rotate(-90deg);
 }
 
 .reasoning-details[open] .reasoning-toggle-icon {
-  transform: rotate(90deg);
+  transform: rotate(0deg);
 }
 
 .reasoning-content-wrapper {
@@ -509,8 +525,8 @@ defineExpose({ scrollToEnd, isAtBottom });
 
 /* --- 2. Code Block Styling --- */
 .markdown-content .code-block-wrapper {
-  background-color: var(--code-bg);
-  border: 1px solid var(--code-border);
+  background-color: var(--code-bg-light);
+  border: 1px solid var(--code-border-light);
   border-radius: 8px;
   margin: 1em 0;
   overflow: hidden;
@@ -521,23 +537,37 @@ defineExpose({ scrollToEnd, isAtBottom });
   transition: all 0.3s cubic-bezier(.4, 1, .6, 1);
 }
 
+.dark .markdown-content .code-block-wrapper {
+  background-color: var(--code-bg);
+  border-color: var(--code-border);
+}
+
 .code-block-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: var(--code-header-bg);
+  background-color: var(--code-header-bg-light);
   padding: 8px 8px 8px 16px;
-  border-bottom: 1px solid var(--code-border);
+  border-bottom: 1px solid var(--code-border-light);
   position: sticky;
   top: 0;
   z-index: 10;
 }
 
+.dark .code-block-header {
+  background-color: var(--code-header-bg);
+  border-bottom-color: var(--code-border);
+}
+
 .code-language {
   font-family: monospace;
   font-size: 0.85em;
-  color: var(--code-action-text);
+  color: var(--code-action-text-light);
   text-transform: lowercase;
+}
+
+.dark .code-language {
+  color: var(--code-action-text);
 }
 
 .code-actions {
@@ -552,7 +582,7 @@ defineExpose({ scrollToEnd, isAtBottom });
   background-color: transparent;
   border: 1px solid transparent;
   border-radius: 6px;
-  color: var(--code-action-text);
+  color: var(--code-action-text-light);
   padding: 4px 8px;
   font-size: 0.8em;
   font-weight: 500;
@@ -560,7 +590,16 @@ defineExpose({ scrollToEnd, isAtBottom });
   transition: all 0.2s ease-in-out;
 }
 
+.dark .code-action-button {
+  color: var(--code-action-text);
+}
+
 .code-action-button:hover {
+  background-color: var(--code-action-hover-bg-light);
+  color: var(--code-action-hover-text-light);
+}
+
+.dark .code-action-button:hover {
   background-color: var(--code-action-hover-bg);
   color: var(--code-action-hover-text);
 }
@@ -590,9 +629,13 @@ defineExpose({ scrollToEnd, isAtBottom });
   display: block;
   padding: 16px;
   background: transparent;
-  color: var(--code-text);
+  color: var(--code-text-light);
   font-size: 0.9em;
   line-height: 1.6;
+}
+
+.dark .code-block-wrapper pre code.hljs {
+  color: var(--code-text);
 }
 
 /* Generic Markdown Content Styling */
@@ -617,6 +660,16 @@ defineExpose({ scrollToEnd, isAtBottom });
   margin-bottom: 0;
 }
 
+.markdown-content hr {
+  border: none;
+  border-top: 1px solid var(--reasoning-border-light);
+  margin: 1.5em 0;
+}
+
+.dark .markdown-content hr {
+  border-top-color: rgba(139, 148, 158, 0.3);
+}
+
 .markdown-content h1,
 .markdown-content h2,
 .markdown-content h3 {
@@ -636,27 +689,159 @@ defineExpose({ scrollToEnd, isAtBottom });
   margin: 1em 0;
 }
 
+.markdown-content strong,
+.markdown-content b {
+  font-weight: 600;
+  color: var(--text-primary-light);
+}
+
+.dark .markdown-content strong,
+.dark .markdown-content b {
+  color: var(--text-primary-dark);
+}
+
 .markdown-content ul,
 .markdown-content ol {
   margin: 1em 0;
   padding-left: 2em;
 }
 
+/* Task list styling */
+.markdown-content li.task-list-item {
+  list-style-type: none;
+  position: relative;
+  margin-bottom: 0.5em;
+}
+
+.markdown-content li.task-list-item input[type="checkbox"] {
+  position: absolute;
+  left: -2em;
+  width: 1.2em;
+  height: 1.2em;
+  border: 1px solid var(--reasoning-border-light);
+  border-radius: 3px;
+  background-color: var(--background);
+  transition: all 0.2s ease-in-out;
+  margin-top: 0.2em;
+  pointer-events: none; /* Make non-interactable */
+  cursor: default;
+  appearance: none; /* Remove default styling */
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.dark .markdown-content li.task-list-item input[type="checkbox"] {
+  border-color: var(--reasoning-border-dark);
+  background-color: var(--code-header-bg);
+}
+
+.markdown-content li.task-list-item input[type="checkbox"]:checked {
+  background-color: #3fb950; /* GitHub green */
+  border-color: #3fb950;
+}
+
+.markdown-content li.task-list-item input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 0.3em;
+  top: 0.1em;
+  width: 0.4em;
+  height: 0.7em;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.markdown-content li.task-list-item input[type="checkbox"] + span {
+  margin-left: 0.5em;
+}
+
+/* Style the text of completed tasks */
+.markdown-content li.task-list-item input[type="checkbox"]:checked + span {
+  text-decoration: line-through;
+  color: var(--text-secondary-light);
+  opacity: 0.8;
+}
+
+.dark .markdown-content li.task-list-item input[type="checkbox"]:checked + span {
+  color: var(--text-secondary-dark);
+}
+
 .markdown-content blockquote {
-  border-left: 4px solid var(--reasoning-border-dark);
+  border-left: 4px solid var(--reasoning-border-light);
   margin: 1.5em 0;
   padding: 0.5em 1.2em;
-  background: var(--code-header-bg);
-  color: var(--code-action-text);
+  color: var(--text-secondary-light);
   border-radius: 4px;
 }
 
+.dark .markdown-content blockquote {
+  border-left-color: var(--reasoning-border-dark);
+  color: var(--text-secondary-dark);
+}
+
 .markdown-content code:not(.hljs) {
-  background-color: var(--code-header-bg);
-  color: var(--code-text);
+  background-color: rgba(139, 148, 158, 0.1);
+  color: var(--text-primary-light);
   padding: 0.2em 0.4em;
   border-radius: 4px;
   font-size: 0.85em;
+}
+
+.dark .markdown-content code:not(.hljs) {
+  background-color: var(--code-header-bg);
+  color: var(--code-text);
+}
+
+/* Table styling */
+.markdown-content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+}
+
+.markdown-content table th,
+.markdown-content table td {
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.markdown-content table th {
+  border-bottom: 2px solid var(--reasoning-border-light);
+  font-weight: 600;
+  color: var(--text-primary-light);
+}
+
+.dark .markdown-content table th {
+  border-bottom-color: var(--reasoning-border-dark);
+  color: var(--text-primary-dark);
+}
+
+.markdown-content table td {
+  border-bottom: 1px solid var(--reasoning-border-light);
+}
+
+.dark .markdown-content table td {
+  border-bottom-color: var(--reasoning-border-dark);
+}
+
+.markdown-content table tr:last-child td {
+  border-bottom: none;
+}
+
+/* LaTeX math styling */
+.markdown-content .katex-display {
+  margin: 1em 0;
+  overflow: auto hidden;
+  padding: 0.5em 0;
+}
+
+.markdown-content .katex {
+  font-size: 1.1em;
+  white-space: nowrap;
+}
+
+.markdown-content .katex-html {
+  display: inline-block;
 }
 
 .cursor {
@@ -679,5 +864,86 @@ defineExpose({ scrollToEnd, isAtBottom });
   50% {
     opacity: 0;
   }
+}
+
+/* Light mode highlight.js overrides */
+.markdown-content pre code.hljs {
+  color: var(--code-text-light);
+  background: var(--code-bg-light);
+}
+
+.markdown-content pre code.hljs .hljs-comment {
+  color: var(--code-comment-light);
+}
+
+.markdown-content pre code.hljs .hljs-keyword {
+  color: var(--code-keyword-light);
+}
+
+.markdown-content pre code.hljs .hljs-function {
+  color: var(--code-function-light);
+}
+
+.markdown-content pre code.hljs .hljs-string {
+  color: var(--code-string-light);
+}
+
+.markdown-content pre code.hljs .hljs-number {
+  color: var(--code-number-light);
+}
+
+.markdown-content pre code.hljs .hljs-variable {
+  color: var(--code-variable-light);
+}
+
+.markdown-content pre code.hljs .hljs-property {
+  color: var(--code-property-light);
+}
+
+/* Dark mode highlight.js overrides */
+.dark .markdown-content pre code.hljs {
+  color: var(--code-text);
+  background: var(--code-bg);
+}
+
+.dark .markdown-content pre code.hljs .hljs-comment {
+  color: var(--code-comment-dark);
+}
+
+.dark .markdown-content pre code.hljs .hljs-keyword {
+  color: var(--code-keyword-dark);
+}
+
+.dark .markdown-content pre code.hljs .hljs-function {
+  color: var(--code-function-dark);
+}
+
+.dark .markdown-content pre code.hljs .hljs-string {
+  color: var(--code-string-dark);
+}
+
+.dark .markdown-content pre code.hljs .hljs-number {
+  color: var(--code-number-dark);
+}
+
+.dark .markdown-content pre code.hljs .hljs-variable {
+  color: var(--code-variable-dark);
+}
+
+.dark .markdown-content pre code.hljs .hljs-property {
+  color: var(--code-property-dark);
+}
+
+/* Make curly brackets and punctuation lighter in dark mode */
+.dark .markdown-content pre code.hljs .hljs-punctuation,
+.dark .markdown-content pre code.hljs .hljs-tag,
+.dark .markdown-content pre code.hljs .hljs-operator,
+.dark .markdown-content pre code.hljs .hljs-bracket {
+  color: #e6edf3; /* Light gray for better visibility */
+}
+
+.dark .markdown-content pre code.hljs .hljs-template-variable,
+.dark .markdown-content pre code.hljs .hljs-template-tag {
+  color: #f0f6fc; /* Even lighter for template content */
 }
 </style>

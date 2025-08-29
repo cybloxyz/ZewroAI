@@ -19,7 +19,6 @@ const metadata = ref([]);
 const windowWidth = ref(
   typeof window !== "undefined" ? window.innerWidth : 1200,
 );
-const conversationListRef = ref(null);
 
 function handleResize() {
   windowWidth.value = window.innerWidth;
@@ -66,8 +65,8 @@ function closeSidebar() {
         <span>New Chat</span>
       </button>
       <div class="main-content">
-        <div class="conversation-list" ref="conversationListRef" v-if="metadata.length">
-          <div class="conversation-wrapper" v-for="data in metadata" :key="data.id">
+        <div class="conversation-list" v-if="metadata.length">
+          <div class="conversation-wrapper" v-for="data in [...metadata].reverse()" :key="data.id">
             <button class="conversation-button" @click="$emit('changeConversation', data.id)"
               :class="{ active: data.id == currConvo }">
               {{ data.title }}
@@ -155,7 +154,7 @@ function closeSidebar() {
 
 .conversation-list {
   display: flex;
-  flex-direction: column-reverse;
+  flex-direction: column;
   overflow-y: auto;
   max-height: 400px;
   gap: 4px;
@@ -188,7 +187,7 @@ function closeSidebar() {
 }
 
 .conversation-button:hover {
-  background: var(--bg-tertiary);
+  background: var(--bg-secondary);
   color: var(--primary);
 }
 
