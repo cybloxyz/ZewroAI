@@ -262,7 +262,7 @@ defineExpose({ scrollToEnd, isAtBottom });
 <template>
   <div class="chat-wrapper" ref="chatWrapper" @scroll="handleScroll">
     <div class="chat-container">
-      <h1 v-if="messages.length < 1" class="welcome-message">What do you need help with?</h1>
+      <h1 v-if="messages.length < 1" class="welcome-message">Kamu Mau Tanya Apa?</h1>
       <div class="messages-layer">
         <template v-for="message in messages" :key="message.id">
           <div class="message" :class="message.role">
@@ -605,7 +605,7 @@ defineExpose({ scrollToEnd, isAtBottom });
 }
 
 .code-action-button.copied {
-  color: #3fb950;
+  color: #42b952;
 }
 
 .code-action-button svg {

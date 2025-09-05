@@ -13,11 +13,11 @@
   /* ----------------- LIGHT THEME (warmer + grayer) ----------------- */
   /* Page & surfaces */
   --bg: #ebe7e2; /* soft, neutral gray canvas */
-  --surface: #dbd4d1; /* cards, panels, app surfaces */
+  --surface: #FAF0E6; /* cards, panels, app surfaces */
   --elevated-surface: #e6dfdc; /* slightly tinted surface for grouped panels/inputs */
 
   /* Text */
-  --text-primary: #3a2119; /* strong, neutral dark (gray-black) */
+  --text-primary: #213821; /* strong, neutral dark (gray-black) */
   --text-secondary: #63564b; /* neutral secondary */
   --text-muted: #80716b; /* placeholders, disabled labels */
 
@@ -26,10 +26,10 @@
   --muted-border: #e6e7e8; /* very light grouping divider */
 
   /* Primary (brand / main CTA) — warm, readable */
-  --primary: #c04a2c; /* warm burnt-sienna (use sparingly for CTAs) */
+  --primary: #8FBC8F; /* warm burnt-sienna (use sparingly for CTAs) */
   --primary-foreground: #ffffff; /* text/icon color when placed on --primary */
-  --primary-600: #9b3d23; /* hover / active */
-  --primary-800: #6f2a18; /* pressed/strong state */
+  --primary-600: #7ba87b; /* hover / active */
+  --primary-800: #556B2F; /* pressed/strong state */
 
   /* Secondary / supporting accent */
   --secondary: #b38b3b; /* desaturated warm mustard */
@@ -152,10 +152,10 @@
   --muted-border: rgba(230, 230, 230, 0.04);
 
   /* Primary (warm, visible on dark surfaces) */
-  --primary: #e06a3a; /* warm orange that pops on dark */
+  --primary: #95c795; /* warm orange that pops on dark */
   --primary-foreground: #ffffff; /* always white on dark primary */
-  --primary-600: #b34e2b; /* hover/darker */
-  --primary-800: #7a321d; /* pressed/strong */
+  --primary-600: #7ba87b; /* hover/darker */
+  --primary-800: #648864; /* pressed/strong */
 
   /* Secondary supporting accent */
   --secondary: #9e7a3a; /* muted golden-olive */

@@ -138,7 +138,7 @@ function saveSettings() {
 
               <div class="setting-item">
                 <div class="setting-info">
-                  <h3>What should Aegis call you?</h3>
+                  <h3>What should Zewro call you?</h3>
                   <p>Enter your name</p>
                 </div>
                 <div class="input-container">
@@ -149,7 +149,7 @@ function saveSettings() {
               <div class="setting-item">
                 <div class="setting-info">
                   <h3>What occupation do you have?</h3>
-                  <p>Teacher, software engineer, student, etc.</p>
+                  <p>Teacher, volunteer, student, etc.</p>
                 </div>
                 <div class="input-container">
                   <input v-model="occupation" type="text" placeholder="Teacher, software engineer, student, etc."
@@ -159,7 +159,7 @@ function saveSettings() {
 
               <div class="setting-item">
                 <div class="setting-info">
-                  <h3>What custom instructions do you want Aegis to follow?</h3>
+                  <h3>What custom instructions do you want Zew to follow?</h3>
                   <p>Be precise, be witty, etc.</p>
                 </div>
                 <div class="input-container">
@@ -196,12 +196,12 @@ function saveSettings() {
             <div class="settings-content">
               <div class="content-header">
                 <h2>About</h2>
-                <p>Information about Aegis AI Interface</p>
+                <p>Information about Zewro AI Interface</p>
               </div>
               <div class="info-section">
                 <p>
                   A modern Vue.js-powered interface for AI interactions with
-                  support for Hack Club API.
+                  support for Hack Club API and powered by Aegis AI, an open source model.
                 </p>
               </div>
             </div>

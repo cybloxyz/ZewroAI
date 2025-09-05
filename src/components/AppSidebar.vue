@@ -56,13 +56,13 @@ function closeSidebar() {
     <div v-if="props.isOpen && windowWidth < 900" class="sidebar-overlay" @click="closeSidebar"></div>
     <div :class="['sidebar', { active: props.isOpen }]">
       <div class="sidebar-header">
-        <span class="sidebar-title">Chats</span>
+        <span class="sidebar-title">Pesan</span>
         <button class="settings-button" aria-label="Open settings" @click="$emit('openSettings')">
           <Icon icon="material-symbols:settings" width="28" height="28" />
         </button>
       </div>
       <button id="new-chat-button" class="new-chat-btn" @click="$emit('newConversation')">
-        <span>New Chat</span>
+        <span>Pesan Baru</span>
       </button>
       <div class="main-content">
         <div class="conversation-list" v-if="metadata.length">

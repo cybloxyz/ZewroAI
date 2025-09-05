@@ -121,7 +121,7 @@ defineExpose({ setMessage });
   <div class="input-section">
     <div class="input-area-wrapper">
       <textarea ref="textareaRef" v-model="inputMessage" :disabled="isLoading" @keydown.enter="handleEnterKey"
-        placeholder="Type your message..." class="chat-textarea" rows="1"></textarea>
+        placeholder="ketik pesan disini..." class="chat-textarea" rows="1"></textarea>
 
       <div class="input-actions">
         <!-- CHANGE: Added container with relative positioning for proper popover placement -->
